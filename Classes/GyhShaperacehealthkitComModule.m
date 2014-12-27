@@ -140,6 +140,8 @@
 }
 
 
+
+
 // OVAN ÄR KLART
 
 -(void)enableBackgroundDeliveryForQuantityType:(id)args{
@@ -162,6 +164,10 @@
 
 -(id)init:(id)args
 {
+    if ([[UIApplication sharedApplication] respondsToSelector:@selector(registerUserNotificationSettings:)]) {
+        [[UIApplication sharedApplication] registerUserNotificationSettings:[UIUserNotificationSettings settingsForTypes:UIUserNotificationTypeAlert categories:nil]];
+    }
+    
     self.healthStore = [[HKHealthStore alloc] init];
     
     NSMutableSet* writeTypes = [self getTypes:[args objectAtIndex:0]];
@@ -172,6 +178,9 @@
                                             completion:^(BOOL success, NSError *error) {
                                                 
                                           //      dispatch_async(dispatch_get_main_queue(), ^{
+                                                
+                                                [self observeQuantityType];
+                                                [self enableBackgroundDeliveryForQuantityType];
                 
                                                     KrollCallback* callback = [args objectAtIndex:2];
                                                     if(callback){
@@ -190,6 +199,135 @@
 -(id)isSupported:(id)args{
     return [NSNumber numberWithBool:[HKHealthStore isHealthDataAvailable]];
 }
+
+
+-(void) sendData: (NSInteger) sum{
+    
+    
+    
+    NSString* addr = [NSString stringWithFormat:@"https://api.shaperace.com/beta/fugly?token=f56bd790323640b904dda471b4480231266dc577&device_id=E92D06F7-96C9-4858-B33B-243731CE7E32&steps=%li", (long)sum];
+    
+    NSMutableURLRequest *request = [[NSMutableURLRequest alloc]
+                                    initWithURL:[NSURL
+                                                 URLWithString:addr]];
+    
+    [request setHTTPMethod:@"GET"];
+    // [request setValue:@"text/xml" forHTTPHeaderField:@"Content-type"];
+    
+    NSError *error = [[NSError alloc] init];
+    NSHTTPURLResponse *responseCode = nil;
+    
+    NSData *oResponseData = [NSURLConnection sendSynchronousRequest:request returningResponse:&responseCode error:&error];
+    
+    //   [[NSURLConnection alloc] initWithRequest:request delegate:self];
+    
+}
+
+
+
+
+-(void) setTypes
+{
+    self.healthStore = [[HKHealthStore alloc] init];
+    
+    NSMutableSet* types = [[NSMutableSet alloc]init];
+    [types addObject:[HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierStepCount]];
+    
+    [self.healthStore requestAuthorizationToShareTypes: types
+                                             readTypes: types
+                                            completion:^(BOOL success, NSError *error) {
+                                                if (error == nil) {
+                                                    
+                                                    
+                                                }
+                                                else {
+                                                    NSLog(@"Error=%@",error);
+                                                }
+                                            }];
+}
+
+-(void)enableBackgroundDeliveryForQuantityType{
+    [self.healthStore enableBackgroundDeliveryForType: [HKQuantityType quantityTypeForIdentifier: HKQuantityTypeIdentifierStepCount] frequency:HKUpdateFrequencyImmediate withCompletion:^(BOOL success, NSError *error) {
+        NSLog(@"Observation registered error=%@",error);
+    }];
+}
+
+
+-(void) observeQuantityType{
+    
+    HKSampleType *quantityType = [HKSampleType quantityTypeForIdentifier:HKQuantityTypeIdentifierStepCount];
+    
+    HKObserverQuery *query =
+    [[HKObserverQuery alloc]
+     initWithSampleType:quantityType
+     predicate:nil
+     updateHandler:^(HKObserverQuery *query,
+                     HKObserverQueryCompletionHandler completionHandler,
+                     NSError *error) {
+   
+         [self getQuantityResult:completionHandler];
+         
+     }];
+    [self.healthStore executeQuery:query];
+}
+
+
+-(void) getQuantityResult:(HKObserverQueryCompletionHandler) completionHandler{
+    
+    NSInteger limit = 0;
+    NSCalendar *calendar = [NSCalendar currentCalendar];
+    
+    NSDate *now = [NSDate date];
+    
+    NSDate *toDate = [NSDate date]; //
+    unsigned unitFlags = NSCalendarUnitYear | NSCalendarUnitMonth |  NSCalendarUnitDay;
+    
+    NSDateComponents *comps = [calendar components:unitFlags fromDate:toDate];
+    comps.hour   = 00;
+    comps.minute = 00;
+    comps.second = 01;
+    NSDate *fromDate = [calendar dateFromComponents:comps];
+    
+    //NSDate *startDate = [calendar dateByAddingUnit:NSCalendarUnitDay value:-1 toDate:now options:0];
+    
+    //NSDate *endDate = [calendar dateByAddingUnit:NSCalendarUnitDay value:1 toDate:startDate options:0];
+    
+    NSPredicate *predicate = [HKQuery predicateForSamplesWithStartDate:fromDate endDate:toDate options:HKQueryOptionNone];
+    
+    
+    NSString *endKey =  HKSampleSortIdentifierEndDate;
+    NSSortDescriptor *endDateSort = [NSSortDescriptor sortDescriptorWithKey: endKey ascending: NO];
+    
+    NSLog(@"Requesting step data");
+    
+    HKSampleQuery *query = [[HKSampleQuery alloc] initWithSampleType: [HKQuantityType quantityTypeForIdentifier:HKQuantityTypeIdentifierStepCount]
+                                                           predicate: predicate
+                                                               limit: limit
+                                                     sortDescriptors: @[endDateSort]
+                                                      resultsHandler:^(HKSampleQuery *query, NSArray* results, NSError *error){
+                                                          
+                                                          NSLog(@"Query completed. error=%@",error);
+                                                          
+                                                          
+                                                          NSInteger totalSteps=0;
+                                                          
+                                                          for (HKQuantitySample *sample in results) {
+                                                              totalSteps+=[sample.quantity doubleValueForUnit:[HKUnit countUnit]];
+                                                          }
+                                                          NSLog(@"Sending step data");
+                                                          UILocalNotification *notification=[UILocalNotification new];
+                                                          notification.fireDate=[NSDate dateWithTimeIntervalSinceNow:1];
+                                                          notification.alertBody=[NSString stringWithFormat:@"Received step count %ld",(long)totalSteps];
+                                                          [[UIApplication sharedApplication] scheduleLocalNotification:notification];
+                                                          // sends the data using HTTP
+                                                              [self sendData: totalSteps];
+                                                          if (completionHandler) completionHandler();
+                                                          
+                                                      }];
+    [self.healthStore executeQuery:query];
+}
+
+
 
 
 
@@ -245,6 +383,93 @@
 }
 
 
+
+
+-(NSMutableSet*) authorizedCategoryTypes:(NSArray*) types{
+    NSMutableSet* set = [[NSMutableSet alloc]init];
+    
+    for (NSString* type in types){
+        if ([self.healthStore authorizationStatusForType: [HKQuantityType categoryTypeForIdentifier: type]] == HKAuthorizationStatusSharingAuthorized){
+            [set addObject:type];
+        }
+    }
+    
+    return set;
+}
+
+-(NSMutableSet*) authorizedCharateristicsTypes:(NSArray*) types{
+    NSMutableSet* set = [[NSMutableSet alloc]init];
+   
+    for (NSString* type in types){
+        if ([self.healthStore authorizationStatusForType: [HKQuantityType characteristicTypeForIdentifier: type]] == HKAuthorizationStatusSharingAuthorized){
+            [set addObject:type];
+        }
+    }
+    
+    return set;
+}
+
+-(NSMutableSet*) authorizedCorrelationTypes:(NSArray*) types{
+    NSMutableSet* set = [[NSMutableSet alloc]init];
+    
+    for (NSString* type in types){
+        if ([self.healthStore authorizationStatusForType: [HKQuantityType correlationTypeForIdentifier: type]] == HKAuthorizationStatusSharingAuthorized){
+            [set addObject:type];
+        }
+    }
+    
+    return set;
+}
+
+-(NSMutableSet*) authorizedQuantityTypes:(NSArray*) types{
+    NSMutableSet* set = [[NSMutableSet alloc]init];
+    
+    for (NSString* type in types){
+        if ([self.healthStore authorizationStatusForType: [HKQuantityType quantityTypeForIdentifier: type]] == HKAuthorizationStatusSharingAuthorized){
+            [set addObject:type];
+        }
+    }
+    
+    return set;
+}
+
+-(NSMutableSet*) authorizedWorkoutTypes:(NSArray*) types{
+    NSMutableSet* set = [[NSMutableSet alloc]init];
+    for (NSString* type in types){
+        if ([self.healthStore authorizationStatusForType: [HKWorkoutType workoutType]] == HKAuthorizationStatusSharingAuthorized){
+            [set addObject:type];
+        }
+    }
+    return set;
+}
+
+-(NSMutableSet*) authorizedWriteTypes:(NSDictionary*) dict{
+    NSMutableSet* set = [[NSMutableSet alloc] init];
+    
+    [set unionSet: [self authorizedCategoryTypes:[dict objectForKey:@"HKCategoryType"]]];
+    [set unionSet: [self authorizedCharateristicsTypes:[dict objectForKey:@"HKCharacteristicType"]]];
+    [set unionSet: [self authorizedCorrelationTypes:[dict objectForKey:@"HKCorrelationType"]]];
+    [set unionSet: [self authorizedQuantityTypes:[dict objectForKey:@"HKQuantityType"]]];
+    [set unionSet: [self authorizedWorkoutTypes:[dict objectForKey:@"HKWorkoutType"]]];
+    
+    return set;
+}
+
+
+
+-(void) authorize:(id)args{
+    bool isAuthorized = true;
+    NSMutableSet* writeTypes = [self getTypes:[args objectAtIndex:0]];
+    NSMutableSet* authorizedWriteTypes = [self authorizedWriteTypes:[args objectAtIndex:0]];
+    
+    if ([writeTypes count] != [authorizedWriteTypes count]) isAuthorized = false;
+    
+    NSMutableSet* readTypes = [self getTypes:[args objectAtIndex:1]];
+    
+ 
+    
+}
+
 -(void) getQuantityResult:(id)args withCompletion: (HKObserverQueryCompletionHandler) completionHandler{
     NSDictionary* queryObj = [args objectAtIndex:0];
     NSInteger limit = [queryObj objectForKey:@"limit"];
@@ -297,9 +522,6 @@
                                                                       NSArray* array = [NSArray arrayWithObjects: dict, nil];
                                                                     [callback call:array thisObject:nil];
                                                                   }
-                                                          
-                                                         
-                                                          
                                                           
                                                       //    });
                                                       }];
