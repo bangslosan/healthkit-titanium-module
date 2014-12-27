@@ -1,0 +1,18 @@
+#
+# this is your module manifest and used by Titanium
+# during compilation, packaging, distribution, etc.
+#
+version: 1.0
+apiversion: 2
+description: My module
+author: Your Name
+license: Specify your license
+copyright: Copyright (c) 2014 by Your Company
+
+
+# these should not be edited
+name: shaperace_healthkit
+moduleid: gyh.shaperacehealthkit.com
+guid: 6ddb2898-e08e-4943-ba68-4f8dbdf85b0a
+platform: iphone
+minsdk: 3.4.1.GA
