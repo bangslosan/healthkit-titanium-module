@@ -14,6 +14,12 @@
 
 @property (nonatomic) HKHealthStore *healthStore;
 @property (nonatomic) HKObserverQueryCompletionHandler compl;
+@property (nonatomic) NSString* url;
+
+struct stepsResults{
+    int todayStepsCount;
+    int yesterDayStepsCount;
+};
 
 @end
 
@@ -143,6 +149,7 @@
 
 
 // OVAN ÄR KLART
+/*
 
 -(void)enableBackgroundDeliveryForQuantityType:(id)args{
     [self.healthStore enableBackgroundDeliveryForType: [HKQuantityType quantityTypeForIdentifier: [args objectAtIndex:0]] frequency:[args objectAtIndex:1] withCompletion:^(BOOL success, NSError *error) {
@@ -160,7 +167,7 @@
       //  });
     }];
 }
-
+*/
 
 -(id)init:(id)args
 {
@@ -172,6 +179,7 @@
     
     NSMutableSet* writeTypes = [self getTypes:[args objectAtIndex:0]];
     NSMutableSet* readTypes = [self getTypes:[args objectAtIndex:1]];
+    self.url = [args objectAtIndex:2];
     
     [self.healthStore requestAuthorizationToShareTypes: writeTypes
                                              readTypes: readTypes
@@ -179,10 +187,10 @@
                                                 
                                           //      dispatch_async(dispatch_get_main_queue(), ^{
                                                 
-                                                [self observeQuantityType];
+                                                [self observeSteps];
                                                 [self enableBackgroundDeliveryForQuantityType];
                 
-                                                    KrollCallback* callback = [args objectAtIndex:2];
+                                                    KrollCallback* callback = [args objectAtIndex:3];
                                                     if(callback){
                                                         
                                                         NSDictionary *res = @{
@@ -201,11 +209,18 @@
 }
 
 
--(void) sendData: (NSInteger) sum{
+-(void) sendData: (NSArray*) results{
     
+    struct stepsResults preparedResults = [self prepareStepsResult:results];
     
+    NSDate* now = [NSDate date];
+    NSCalendar* calendar = [NSCalendar currentCalendar];
+    unsigned unitFlags = NSCalendarUnitYear | NSCalendarUnitMonth |  NSCalendarUnitDay;
+    NSDateComponents* comp = [calendar components:unitFlags fromDate:now];
     
-    NSString* addr = [NSString stringWithFormat:@"https://api.shaperace.com/beta/fugly?token=f56bd790323640b904dda471b4480231266dc577&device_id=E92D06F7-96C9-4858-B33B-243731CE7E32&steps=%li", (long)sum];
+    NSString* dateAsString = [NSString stringWithFormat:@"%li-%li-%li", (long)comp.year, (long)comp.month, (long)comp.day];
+    
+    NSString* addr = [NSString stringWithFormat: [self url], preparedResults.todayStepsCount, preparedResults.yesterDayStepsCount, dateAsString];
     
     NSMutableURLRequest *request = [[NSMutableURLRequest alloc]
                                     initWithURL:[NSURL
@@ -253,7 +268,7 @@
 }
 
 
--(void) observeQuantityType{
+-(void) observeSteps{
     
     HKSampleType *quantityType = [HKSampleType quantityTypeForIdentifier:HKQuantityTypeIdentifierStepCount];
     
@@ -265,14 +280,43 @@
                      HKObserverQueryCompletionHandler completionHandler,
                      NSError *error) {
    
-         [self getQuantityResult:completionHandler];
+         [self getSteps:completionHandler];
          
      }];
     [self.healthStore executeQuery:query];
 }
 
+-(struct stepsResults) prepareStepsResult:(NSArray*)results{
+    
+    struct stepsResults stepsRes;
+    stepsRes.todayStepsCount = 0;
+    stepsRes.yesterDayStepsCount = 0;
+    
+    NSCalendar *calendar = [NSCalendar currentCalendar];
+    
+    NSDate *now = [NSDate date];
+    
+    unsigned unitFlags = NSCalendarUnitYear | NSCalendarUnitMonth |  NSCalendarUnitDay;
+    
+    NSDateComponents *comps = [calendar components:unitFlags fromDate:now];
+    comps.hour   = 23;
+    comps.minute = 59;
+    comps.second = 59;
+    NSDate *tmpFromDate = [calendar dateFromComponents:comps];
+    NSDate* fromDate = [calendar dateByAddingUnit:NSCalendarUnitDay value:-1 toDate:tmpFromDate options:0];
+    
+    for (HKQuantitySample *sample in results) {
+        NSComparisonResult compateResult = [sample.startDate compare:fromDate];
+        if (compateResult == NSOrderedAscending)
+            stepsRes.todayStepsCount +=[sample.quantity doubleValueForUnit:[HKUnit countUnit]];
+        else
+            stepsRes.yesterDayStepsCount +=[sample.quantity doubleValueForUnit:[HKUnit countUnit]];
+    }
+    return stepsRes;
+}
 
--(void) getQuantityResult:(HKObserverQueryCompletionHandler) completionHandler{
+
+-(void) getSteps:(HKObserverQueryCompletionHandler) completionHandler{
     
     NSInteger limit = 0;
     NSCalendar *calendar = [NSCalendar currentCalendar];
@@ -286,7 +330,8 @@
     comps.hour   = 00;
     comps.minute = 00;
     comps.second = 01;
-    NSDate *fromDate = [calendar dateFromComponents:comps];
+    NSDate *tmpFromDate = [calendar dateFromComponents:comps];
+    NSDate* fromDate = [calendar dateByAddingUnit:NSCalendarUnitDay value:-1 toDate:tmpFromDate options:0];
     
     //NSDate *startDate = [calendar dateByAddingUnit:NSCalendarUnitDay value:-1 toDate:now options:0];
     
@@ -320,7 +365,7 @@
                                                           notification.alertBody=[NSString stringWithFormat:@"Received step count %ld",(long)totalSteps];
                                                           [[UIApplication sharedApplication] scheduleLocalNotification:notification];
                                                           // sends the data using HTTP
-                                                              [self sendData: totalSteps];
+                                                              [self sendData: results];
                                                           if (completionHandler) completionHandler();
                                                           
                                                       }];
@@ -329,7 +374,7 @@
 
 
 
-
+/*
 
 -(void) observeQuantityType:(id)args{
     
@@ -361,7 +406,7 @@
 
     return [NSPredicate predicateWithFormat:@"startDate >= %@ AND endDate <= %@", startDate, endDate];
 }
-
+*/
 
 -(NSMutableArray*)resultAsNumberArray:(NSArray*)result{
     NSMutableArray* numberArray = [[NSMutableArray alloc] init];
@@ -470,6 +515,7 @@
     
 }
 
+/*
 -(void) getQuantityResult:(id)args withCompletion: (HKObserverQueryCompletionHandler) completionHandler{
     NSDictionary* queryObj = [args objectAtIndex:0];
     NSInteger limit = [queryObj objectForKey:@"limit"];
@@ -532,6 +578,7 @@
 -(void)completion:(id)args{
     [self compl];
 }
+  */
 
 -(NSDate*) NSDateFromJavaScriptString:(NSString*) dateStr{
     NSTimeZone *currentDateTimeZone = [NSTimeZone defaultTimeZone];
@@ -540,6 +587,7 @@
     [currentDateFormat setDateFormat:@"yyyy-MM-dd HH:mm:ss"];
     return [currentDateFormat dateFromString:dateStr];
 }
+
 
 -(void)saveWorkout:(id)args{
     
