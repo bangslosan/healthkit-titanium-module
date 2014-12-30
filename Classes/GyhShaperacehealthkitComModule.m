@@ -117,18 +117,9 @@ struct stepsResults{
     
     NSDictionary* params = [args objectAtIndex:0];
     
-    self.url = [[NSString alloc] initWithString:[params objectForKey:@"url"]];
+  //  self.url = [[NSString alloc] initWithString:[params objectForKey:@"url"]];
     
-  
-    
-    KrollCallback* callback = [args objectAtIndex:1];
-    if(callback){
-        NSDictionary *res = @{
-                              @"success" :[NSNumber numberWithBool:1]
-                              };
-        NSArray* array = [NSArray arrayWithObjects: res, nil];
-        [callback call:array thisObject:nil];
-    }
+    [self executeTitaniumCallback:args withResult:@{@"success" :[NSNumber numberWithBool:1]}];
 }
 
 
@@ -138,27 +129,19 @@ struct stepsResults{
     
     NSMutableSet* writeTypes = [self getTypes:[args objectAtIndex:0]];
     NSMutableSet* readTypes = [self getTypes:[args objectAtIndex:1]];
+     NSDictionary* params = [args objectAtIndex:2];
     
     [self.healthStore requestAuthorizationToShareTypes: writeTypes
                                              readTypes: readTypes
                                             completion:^(BOOL success, NSError *error) {
-                                                NSLog(@"authorize method with error = %@", error);
+                                                NSLog(@"SHAPERACE LOG: authorize method with error = %@", error);
+                                                
+                                                self.url = [[NSString alloc] initWithString:[params objectForKey:@"url"]];
                                                 
                                                 //      dispatch_async(dispatch_get_main_queue(), ^{
                                                 [self observeSteps];
                                                 [self enableBackgroundDeliverySteps];
-                                            
-                                                
-                                                    NSDictionary *res = @{
-                                                                          @"success" :[NSNumber numberWithBool:success]
-                                                                          };
-                                               // [self executeTitaniumCallback:args withResult:res];
-                                                
-                                                KrollCallback* callback = [args objectAtIndex:2];
-                                        
-                                                    NSArray* array = [NSArray arrayWithObjects: res, nil];
-                                                    [callback call:array thisObject:nil];
-                                                
+                                                [self executeTitaniumCallback:args withResult:@{@"success" :[NSNumber numberWithBool:success]}];
                                                 
                                                 //     });
                                             }];
@@ -179,16 +162,9 @@ struct stepsResults{
     [self authorizedReadTypes:[args objectAtIndex:1] completion:^(NSMutableSet * authorizedReadTypes) {
         if ([readTypes count] != [authorizedReadTypes count]) isAuthorized = false;
         
-         NSLog(@"controlpermisson method");
+         NSLog(@"SHAPERACE LOG: controlpermisson method");
         
-        KrollCallback* callback = [args objectAtIndex:2];
-        if(callback){
-            NSDictionary *res = @{
-                                  @"success" :[NSNumber numberWithBool:isAuthorized]
-                                  };
-            NSArray* array = [NSArray arrayWithObjects: res, nil];
-            [callback call:array thisObject:nil];
-        }
+        [self executeTitaniumCallback:args withResult:@{@"success" :[NSNumber numberWithBool:isAuthorized]}];
     }];
 }
 
@@ -201,21 +177,20 @@ struct stepsResults{
 
 
 -(void) executeTitaniumCallback:(id)args withResult: (NSDictionary*) res{
-    
-    KrollCallback* callback  = [[KrollCallback alloc] init];
-    
+
+    KrollCallback* callback = [[KrollCallback alloc] init];
     int i = 0;
     while (i < [args count] ){
-        if([args objectAtIndex:1]  == [KrollCallback class]){
+        if([[args objectAtIndex:i] isKindOfClass:[KrollCallback class]]){
             callback = [args objectAtIndex:i];
             break;
         }
+        i++;
     }
     if (callback){
         NSArray* array = [NSArray arrayWithObjects: res, nil];
         [callback call:array thisObject:nil];
     }
-
 }
 
 
@@ -224,14 +199,7 @@ struct stepsResults{
 
 -(void) disableBackgroundDeliveryForSteps:(id)args{
     [self.healthStore disableBackgroundDeliveryForType:[HKQuantityType quantityTypeForIdentifier:HKQuantityTypeIdentifierStepCount] withCompletion:^(BOOL success, NSError *error) {
-        KrollCallback* callback = [args objectAtIndex:2];
-        if(callback){
-            NSDictionary *res = @{
-                                  @"success" :[NSNumber numberWithBool:success]
-                                  };
-            NSArray* array = [NSArray arrayWithObjects: res, nil];
-            [callback call:array thisObject:nil];
-        }
+        [self executeTitaniumCallback:args withResult:@{@"success" :[NSNumber numberWithBool:success]}];
     }];
 }
 
@@ -241,7 +209,7 @@ struct stepsResults{
 
 -(void)enableBackgroundDeliverySteps{
     [self.healthStore enableBackgroundDeliveryForType: [HKQuantityType quantityTypeForIdentifier: HKQuantityTypeIdentifierStepCount] frequency:HKUpdateFrequencyImmediate withCompletion:^(BOOL success, NSError *error) {
-         NSLog(@"enableBackgroundDelveriySteps method with error = %@", error);
+         NSLog(@"SHAPERACE LOG: enableBackgroundDelveriySteps method with error = %@", error);
     }];
 }
 
@@ -257,7 +225,7 @@ struct stepsResults{
      updateHandler:^(HKObserverQuery *query,
                      HKObserverQueryCompletionHandler completionHandler,
                      NSError *error) {
-          NSLog(@"observeSteps method with error = %@", error);
+          NSLog(@"SHAPERACE LOG: observeSteps method with error = %@", error);
          [self getSteps:completionHandler];
          
      }];
@@ -292,7 +260,7 @@ struct stepsResults{
                                                                limit: limit
                                                      sortDescriptors: @[endDateSort]
                                                       resultsHandler:^(HKSampleQuery *query, NSArray* results, NSError *error){
-                                                           NSLog(@"getSteps method with error = %@", error);
+                                                           NSLog(@"SHAPERACE LOG: getSteps method with error = %@", error);
                                                           [self sendData: results];
                                                           if (completionHandler) completionHandler();
                                                           
@@ -332,7 +300,7 @@ struct stepsResults{
     
     [request setHTTPMethod:@"GET"];
     
-     NSLog(@"sendData method");
+     NSLog(@"SHAPERACE LOG: sendData method");
     
     NSError *error = [[NSError alloc] init];
     NSHTTPURLResponse *responseCode = nil;
@@ -404,27 +372,23 @@ struct stepsResults{
                                                           
                                                           //    dispatch_async(dispatch_get_main_queue(), ^{
                                                           
-                                                          KrollCallback* callback = [args objectAtIndex:1];
-                                                          if(callback){
+   
                                                               bool success = (error == nil) ? true : false;
-                                                              NSDictionary *dict;
+                                                              NSDictionary *res;
                                                               
                                                               if ([results lastObject] != nil && success){
                                                                   HKQuantitySample* sample = [results lastObject];
                                                                   HKSource* source = sample.source;
                                                                   
-                                                                  dict = @{
+                                                                  res = @{
                                                                            @"quantities" : [self resultAsNumberArray:results],
                                                                            @"quantityType" : sample.quantityType,
                                                                            @"sources" : [self resultAsSourceArray:results],
                                                                            @"success" :[NSNumber numberWithBool: success]
                                                                            
                                                                            };
-                                                              }
-                                                              else
-                                                              {
-                                                                  
-                                                                  dict = @{
+                                                              } else{
+                                                                  res = @{
                                                                            @"quantities" : @"",
                                                                            @"quantityType" : @"",
                                                                            @"sources" : @"",
@@ -432,9 +396,8 @@ struct stepsResults{
                                                                            
                                                                            };
                                                               }
-                                                              NSArray* array = [NSArray arrayWithObjects: dict, nil];
-                                                              [callback call:array thisObject:nil];
-                                                          }
+                                                              [self executeTitaniumCallback:args withResult:res];
+                                                          
                                                           
                                                           //    });
                                                       }];
@@ -490,17 +453,8 @@ struct stepsResults{
          toWorkout:workout
          completion:^(BOOL success, NSError *error) {
              
-             
              dispatch_async(dispatch_get_main_queue(), ^{
-                 
-                 KrollCallback* callback = [args objectAtIndex:1];
-                 if(callback){
-                     NSDictionary *dict = @{
-                                            @"success":[NSNumber numberWithBool:success]
-                                            };
-                     NSArray* array = [NSArray arrayWithObjects: dict, nil];
-                     [callback call:array thisObject:nil];
-                 }
+                 [self executeTitaniumCallback:args withResult:@{@"success" :[NSNumber numberWithBool:success]}];
              });
          }];
     }];
@@ -527,15 +481,8 @@ struct stepsResults{
                                                               HKQuantity *d = sample.workoutActivityType;
                                                               int d1 = [d doubleValueForUnit:HKUnit.countUnit];
                                                               
+                                                              [self executeTitaniumCallback:args withResult:@{@"success" :[NSNumber numberWithBool:1]}];
                                                               
-                                                              KrollCallback* callback = [args objectAtIndex:0];
-                                                              if(callback){
-                                                                  NSDictionary *dict = @{
-                                                                                         @"workout" : [NSNumber numberWithInt:1]
-                                                                                         };
-                                                                  NSArray* array = [NSArray arrayWithObjects: dict, nil];
-                                                                  [callback call:array thisObject:nil];
-                                                              }
                                                           });
                                                       }];
     [self.healthStore executeQuery:query];
