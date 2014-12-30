@@ -113,14 +113,13 @@ struct stepsResults{
         [[UIApplication sharedApplication] registerUserNotificationSettings:[UIUserNotificationSettings settingsForTypes:UIUserNotificationTypeAlert categories:nil]];
     }
     
+    NSLog(@"Init method");
     
     NSDictionary* params = [args objectAtIndex:0];
     
     self.url = [[NSString alloc] initWithString:[params objectForKey:@"url"]];
     
-    
-    [self observeSteps];
-    [self enableBackgroundDeliverySteps];
+  
     
     KrollCallback* callback = [args objectAtIndex:1];
     if(callback){
@@ -130,38 +129,41 @@ struct stepsResults{
         NSArray* array = [NSArray arrayWithObjects: res, nil];
         [callback call:array thisObject:nil];
     }
-    
-    
 }
 
 
 -(void) authorize:(id)args
 {
-    
     self.healthStore = [[HKHealthStore alloc] init];
     
     NSMutableSet* writeTypes = [self getTypes:[args objectAtIndex:0]];
     NSMutableSet* readTypes = [self getTypes:[args objectAtIndex:1]];
     
-    
     [self.healthStore requestAuthorizationToShareTypes: writeTypes
                                              readTypes: readTypes
                                             completion:^(BOOL success, NSError *error) {
+                                                NSLog(@"authorize method with error = %@", error);
                                                 
                                                 //      dispatch_async(dispatch_get_main_queue(), ^{
+                                                [self observeSteps];
+                                                [self enableBackgroundDeliverySteps];
+                                            
                                                 
-                                                KrollCallback* callback = [args objectAtIndex:2];
-                                                if(callback){
                                                     NSDictionary *res = @{
                                                                           @"success" :[NSNumber numberWithBool:success]
                                                                           };
+                                               // [self executeTitaniumCallback:args withResult:res];
+                                                
+                                                KrollCallback* callback = [args objectAtIndex:2];
+                                        
                                                     NSArray* array = [NSArray arrayWithObjects: res, nil];
                                                     [callback call:array thisObject:nil];
-                                                }
+                                                
                                                 
                                                 //     });
                                             }];
 }
+
 
 -(void) controlPermissions:(id)args{
     
@@ -176,6 +178,8 @@ struct stepsResults{
     
     [self authorizedReadTypes:[args objectAtIndex:1] completion:^(NSMutableSet * authorizedReadTypes) {
         if ([readTypes count] != [authorizedReadTypes count]) isAuthorized = false;
+        
+         NSLog(@"controlpermisson method");
         
         KrollCallback* callback = [args objectAtIndex:2];
         if(callback){
@@ -194,6 +198,185 @@ struct stepsResults{
 }
 
 // END main API functions
+
+
+-(void) executeTitaniumCallback:(id)args withResult: (NSDictionary*) res{
+    
+    KrollCallback* callback  = [[KrollCallback alloc] init];
+    
+    int i = 0;
+    while (i < [args count] ){
+        if([args objectAtIndex:1]  == [KrollCallback class]){
+            callback = [args objectAtIndex:i];
+            break;
+        }
+    }
+    if (callback){
+        NSArray* array = [NSArray arrayWithObjects: res, nil];
+        [callback call:array thisObject:nil];
+    }
+
+}
+
+
+
+
+
+-(void) disableBackgroundDeliveryForSteps:(id)args{
+    [self.healthStore disableBackgroundDeliveryForType:[HKQuantityType quantityTypeForIdentifier:HKQuantityTypeIdentifierStepCount] withCompletion:^(BOOL success, NSError *error) {
+        KrollCallback* callback = [args objectAtIndex:2];
+        if(callback){
+            NSDictionary *res = @{
+                                  @"success" :[NSNumber numberWithBool:success]
+                                  };
+            NSArray* array = [NSArray arrayWithObjects: res, nil];
+            [callback call:array thisObject:nil];
+        }
+    }];
+}
+
+
+
+// START steps background activity functions
+
+-(void)enableBackgroundDeliverySteps{
+    [self.healthStore enableBackgroundDeliveryForType: [HKQuantityType quantityTypeForIdentifier: HKQuantityTypeIdentifierStepCount] frequency:HKUpdateFrequencyImmediate withCompletion:^(BOOL success, NSError *error) {
+         NSLog(@"enableBackgroundDelveriySteps method with error = %@", error);
+    }];
+}
+
+
+-(void) observeSteps{
+    
+    HKSampleType *quantityType = [HKSampleType quantityTypeForIdentifier:HKQuantityTypeIdentifierStepCount];
+    
+    HKObserverQuery *query =
+    [[HKObserverQuery alloc]
+     initWithSampleType:quantityType
+     predicate:nil
+     updateHandler:^(HKObserverQuery *query,
+                     HKObserverQueryCompletionHandler completionHandler,
+                     NSError *error) {
+          NSLog(@"observeSteps method with error = %@", error);
+         [self getSteps:completionHandler];
+         
+     }];
+    [self.healthStore executeQuery:query];
+}
+
+
+
+-(void) getSteps:(HKObserverQueryCompletionHandler) completionHandler{
+    
+    NSInteger limit = 0;
+    NSCalendar *calendar = [NSCalendar currentCalendar];
+    
+    NSDate *now = [NSDate date];
+    
+    NSDate *toDate = [NSDate date]; //
+    unsigned unitFlags = NSCalendarUnitYear | NSCalendarUnitMonth |  NSCalendarUnitDay;
+    
+    NSDateComponents *comps = [calendar components:unitFlags fromDate:toDate];
+    comps.hour   = 00;
+    comps.minute = 00;
+    comps.second = 01;
+    NSDate *tmpFromDate = [calendar dateFromComponents:comps];
+    NSDate* fromDate = [calendar dateByAddingUnit:NSCalendarUnitDay value:-1 toDate:tmpFromDate options:0];
+    
+    NSPredicate *predicate = [HKQuery predicateForSamplesWithStartDate:fromDate endDate:toDate options:HKQueryOptionNone];
+    NSString *endKey =  HKSampleSortIdentifierEndDate;
+    NSSortDescriptor *endDateSort = [NSSortDescriptor sortDescriptorWithKey: endKey ascending: NO];
+    
+    HKSampleQuery *query = [[HKSampleQuery alloc] initWithSampleType: [HKQuantityType quantityTypeForIdentifier:HKQuantityTypeIdentifierStepCount]
+                                                           predicate: predicate
+                                                               limit: limit
+                                                     sortDescriptors: @[endDateSort]
+                                                      resultsHandler:^(HKSampleQuery *query, NSArray* results, NSError *error){
+                                                           NSLog(@"getSteps method with error = %@", error);
+                                                          [self sendData: results];
+                                                          if (completionHandler) completionHandler();
+                                                          
+                                                      }];
+    [self.healthStore executeQuery:query];
+}
+
+// END steps background activity functions
+
+
+
+
+// START sending steps related functions
+
+
+-(void) sendData: (NSArray*) results{
+    
+    struct stepsResults preparedResults = [self prepareStepsResultForTransmission:results];
+    
+    NSDate* now = [NSDate date];
+    NSCalendar* calendar = [NSCalendar currentCalendar];
+    unsigned unitFlags = NSCalendarUnitYear | NSCalendarUnitMonth |  NSCalendarUnitDay;
+    NSDateComponents* comp = [calendar components:unitFlags fromDate:now];
+    
+    NSString* dateAsString = [NSString stringWithFormat:@"%li-%li-%li", (long)comp.year, (long)comp.month, (long)comp.day];
+    
+    NSString* parameters = [NSString stringWithFormat:@"&date=%@&steps=%i&steps_yesterday=%i", dateAsString, preparedResults.todayStepsCount, preparedResults.yesterDayStepsCount];
+    
+    NSString* addr = [self.url stringByAppendingString: parameters];
+    
+    UILocalNotification *notification=[UILocalNotification new];
+    notification.fireDate=[NSDate dateWithTimeIntervalSinceNow:1];
+    notification.alertBody= self.url;
+    [[UIApplication sharedApplication] scheduleLocalNotification:notification];
+    
+    NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:[NSURL URLWithString:addr]];
+    
+    [request setHTTPMethod:@"GET"];
+    
+     NSLog(@"sendData method");
+    
+    NSError *error = [[NSError alloc] init];
+    NSHTTPURLResponse *responseCode = nil;
+    
+    NSData *oResponseData = [NSURLConnection sendSynchronousRequest:request returningResponse:&responseCode error:&error];
+    
+}
+
+
+
+-(struct stepsResults) prepareStepsResultForTransmission:(NSArray*)results{
+    
+    struct stepsResults stepsRes;
+    stepsRes.todayStepsCount = 0;
+    stepsRes.yesterDayStepsCount = 0;
+    
+    NSCalendar *calendar = [NSCalendar currentCalendar];
+    
+    NSDate *now = [NSDate date];
+    
+    unsigned unitFlags = NSCalendarUnitYear | NSCalendarUnitMonth |  NSCalendarUnitDay;
+    
+    NSDateComponents *comps = [calendar components:unitFlags fromDate:now];
+    comps.hour   = 23;
+    comps.minute = 59;
+    comps.second = 59;
+    NSDate *tmpFromDate = [calendar dateFromComponents:comps];
+    NSDate* fromDate = [calendar dateByAddingUnit:NSCalendarUnitDay value:-1 toDate:tmpFromDate options:0];
+    
+    for (HKQuantitySample *sample in results) {
+        NSComparisonResult compareResult = [sample.startDate compare:fromDate];
+        
+     //   if ([sample.source.bundleIdentifier isEqualToString:@"com.apple.Health"]) continue;
+        if (compareResult == NSOrderedDescending)
+            stepsRes.todayStepsCount += [sample.quantity doubleValueForUnit:[HKUnit countUnit]];
+        else
+            stepsRes.yesterDayStepsCount += [sample.quantity doubleValueForUnit:[HKUnit countUnit]];
+    }
+    return stepsRes;
+}
+
+
+// END sending steps related functions
+
 
 
 
@@ -260,15 +443,6 @@ struct stepsResults{
 
 
 
--(NSDate*) NSDateFromJavaScriptString:(NSString*) dateStr{
-    NSTimeZone *currentDateTimeZone = [NSTimeZone defaultTimeZone];
-    NSDateFormatter *currentDateFormat = [[NSDateFormatter alloc]init];
-    [currentDateFormat setTimeZone:currentDateTimeZone];
-    [currentDateFormat setDateFormat:@"yyyy-MM-dd HH:mm:ss"];
-    return [currentDateFormat dateFromString:dateStr];
-}
-
-
 -(void)saveWorkout:(id)args{
     
     if ([self.healthStore authorizationStatusForType: [HKWorkoutType workoutType]] != HKAuthorizationStatusSharingAuthorized){
@@ -282,7 +456,6 @@ struct stepsResults{
         }
         return;
     }
-    
     
     NSDictionary* props = [args objectAtIndex:0];
     NSString* strCals = [props objectForKey:@"calories"];
@@ -375,207 +548,17 @@ struct stepsResults{
 
 
 
-// START extract types from JS-object
-
--(NSMutableSet*) categoryTypes:(NSArray*) types{
-    NSMutableSet* set = [[NSMutableSet alloc]init];
-    for (int i = 0; i < types.count; i++) [set addObject:[HKObjectType categoryTypeForIdentifier:types[i]]];
-    return set;
-}
-
--(NSMutableSet*) charateristicsTypes:(NSArray*) types{
-    NSMutableSet* set = [[NSMutableSet alloc]init];
-    for (int i = 0; i < types.count; i++) [set addObject:[HKObjectType characteristicTypeForIdentifier:types[i]]];
-    return set;
-}
-
--(NSMutableSet*) correlationTypes:(NSArray*) types{
-    NSMutableSet* set = [[NSMutableSet alloc]init];
-    for (int i = 0; i < types.count; i++) [set addObject:[HKObjectType correlationTypeForIdentifier:types[i]]];
-    return set;
-}
-
--(NSMutableSet*) quantityTypes:(NSArray*) types{
-    NSMutableSet* set = [[NSMutableSet alloc]init];
-    for (int i = 0; i < types.count; i++) [set addObject:[HKObjectType quantityTypeForIdentifier:types[i]]];
-    return set;
-}
-
--(NSMutableSet*) workoutTypes:(NSArray*) types{
-    NSMutableSet* set = [[NSMutableSet alloc]init];
-    if (types.count > 0)
-    [set addObject:[HKObjectType workoutType]];
-    return set;
-}
-
--(NSMutableSet*) getTypes:(NSDictionary*) types{
-    NSMutableSet* set = [[NSMutableSet alloc] init];
-    
-    [set unionSet: [self categoryTypes:[types objectForKey:@"HKCategoryType"]]];
-    [set unionSet: [self charateristicsTypes:[types objectForKey:@"HKCharacteristicType"]]];
-    [set unionSet: [self correlationTypes:[types objectForKey:@"HKCorrelationType"]]];
-    [set unionSet: [self quantityTypes:[types objectForKey:@"HKQuantityType"]]];
-    [set unionSet: [self workoutTypes:[types objectForKey:@"HKWorkoutType"]]];
-    
-    return set;
-}
-
-
-// END extract types from JS-object
-
-
-
-// START steps background activity functions
-
--(void)enableBackgroundDeliverySteps{
-    [self.healthStore enableBackgroundDeliveryForType: [HKQuantityType quantityTypeForIdentifier: HKQuantityTypeIdentifierStepCount] frequency:HKUpdateFrequencyImmediate withCompletion:^(BOOL success, NSError *error) {
-        
-    }];
-}
-
-
--(void) observeSteps{
-    
-    HKSampleType *quantityType = [HKSampleType quantityTypeForIdentifier:HKQuantityTypeIdentifierStepCount];
-    
-    HKObserverQuery *query =
-    [[HKObserverQuery alloc]
-     initWithSampleType:quantityType
-     predicate:nil
-     updateHandler:^(HKObserverQuery *query,
-                     HKObserverQueryCompletionHandler completionHandler,
-                     NSError *error) {
-         
-         [self getSteps:completionHandler];
-         
-     }];
-    [self.healthStore executeQuery:query];
-}
-
-
-
--(void) getSteps:(HKObserverQueryCompletionHandler) completionHandler{
-    
-    NSInteger limit = 0;
-    NSCalendar *calendar = [NSCalendar currentCalendar];
-    
-    NSDate *now = [NSDate date];
-    
-    NSDate *toDate = [NSDate date]; //
-    unsigned unitFlags = NSCalendarUnitYear | NSCalendarUnitMonth |  NSCalendarUnitDay;
-    
-    NSDateComponents *comps = [calendar components:unitFlags fromDate:toDate];
-    comps.hour   = 00;
-    comps.minute = 00;
-    comps.second = 01;
-    NSDate *tmpFromDate = [calendar dateFromComponents:comps];
-    NSDate* fromDate = [calendar dateByAddingUnit:NSCalendarUnitDay value:-1 toDate:tmpFromDate options:0];
-    
-    NSPredicate *predicate = [HKQuery predicateForSamplesWithStartDate:fromDate endDate:toDate options:HKQueryOptionNone];
-    NSString *endKey =  HKSampleSortIdentifierEndDate;
-    NSSortDescriptor *endDateSort = [NSSortDescriptor sortDescriptorWithKey: endKey ascending: NO];
-    
-    HKSampleQuery *query = [[HKSampleQuery alloc] initWithSampleType: [HKQuantityType quantityTypeForIdentifier:HKQuantityTypeIdentifierStepCount]
-                                                           predicate: predicate
-                                                               limit: limit
-                                                     sortDescriptors: @[endDateSort]
-                                                      resultsHandler:^(HKSampleQuery *query, NSArray* results, NSError *error){
-                                                          
-                                                          [self sendData: results];
-                                                          if (completionHandler) completionHandler();
-                                                          
-                                                      }];
-    [self.healthStore executeQuery:query];
-}
-
-// END steps background activity functions
-
-
-
-
-// START sending steps related functions
-
-
--(void) sendData: (NSArray*) results{
-    
-    struct stepsResults preparedResults = [self prepareStepsResult:results];
-    
-    NSDate* now = [NSDate date];
-    NSCalendar* calendar = [NSCalendar currentCalendar];
-    unsigned unitFlags = NSCalendarUnitYear | NSCalendarUnitMonth |  NSCalendarUnitDay;
-    NSDateComponents* comp = [calendar components:unitFlags fromDate:now];
-    
-    NSString* dateAsString = [NSString stringWithFormat:@"%li-%li-%li", (long)comp.year, (long)comp.month, (long)comp.day];
-    
-    NSString* parameters = [NSString stringWithFormat:@"&date=%@&steps=%i&steps_yesterday=%i", dateAsString, preparedResults.todayStepsCount, preparedResults.yesterDayStepsCount];
-    
-    NSString* addr = [self.url stringByAppendingString: parameters];
-    
-    UILocalNotification *notification=[UILocalNotification new];
-    notification.fireDate=[NSDate dateWithTimeIntervalSinceNow:1];
-    notification.alertBody= parameters;
-    [[UIApplication sharedApplication] scheduleLocalNotification:notification];
-    
-
-    notification.fireDate=[NSDate dateWithTimeIntervalSinceNow:5];
-    notification.alertBody= self.url;
-    [[UIApplication sharedApplication] scheduleLocalNotification:notification];
-    
- //   NSString* addr = [NSString stringWithFormat:@"https://api.shaperace.com/beta/hksteps?token=788715bb29e11e5302f8e10654ccb78dac534489&device_id=596A583C-486E-4576-8F7B-7CF558637E93&date=%@&steps=%i&steps_yesterday=%i", @"2014-12-27",1000,1001];
-    
-    NSMutableURLRequest *request = [[NSMutableURLRequest alloc]
-                                    initWithURL:[NSURL
-                                                 URLWithString:addr]];
-    
-    [request setHTTPMethod:@"GET"];
-    
-    NSError *error = [[NSError alloc] init];
-    NSHTTPURLResponse *responseCode = nil;
-    
-    NSData *oResponseData = [NSURLConnection sendSynchronousRequest:request returningResponse:&responseCode error:&error];
-    
-    
-}
-
-
-
--(struct stepsResults) prepareStepsResult:(NSArray*)results{
-    
-    struct stepsResults stepsRes;
-    stepsRes.todayStepsCount = 0;
-    stepsRes.yesterDayStepsCount = 0;
-    
-    NSCalendar *calendar = [NSCalendar currentCalendar];
-    
-    NSDate *now = [NSDate date];
-    
-    unsigned unitFlags = NSCalendarUnitYear | NSCalendarUnitMonth |  NSCalendarUnitDay;
-    
-    NSDateComponents *comps = [calendar components:unitFlags fromDate:now];
-    comps.hour   = 23;
-    comps.minute = 59;
-    comps.second = 59;
-    NSDate *tmpFromDate = [calendar dateFromComponents:comps];
-    NSDate* fromDate = [calendar dateByAddingUnit:NSCalendarUnitDay value:-1 toDate:tmpFromDate options:0];
-    
-    for (HKQuantitySample *sample in results) {
-        NSComparisonResult compareResult = [sample.startDate compare:fromDate];
-        
-        if ([sample.source.bundleIdentifier isEqualToString:@"com.apple.Health"]) continue;
-        if (compareResult == NSOrderedDescending)
-            stepsRes.todayStepsCount += [sample.quantity doubleValueForUnit:[HKUnit countUnit]];
-        else
-            stepsRes.yesterDayStepsCount += [sample.quantity doubleValueForUnit:[HKUnit countUnit]];
-    }
-    return stepsRes;
-}
-
-
-// END sending steps related functions
-
-
 
 // START general helper functions
+
+
+-(NSDate*) NSDateFromJavaScriptString:(NSString*) dateStr{
+    NSTimeZone *currentDateTimeZone = [NSTimeZone defaultTimeZone];
+    NSDateFormatter *currentDateFormat = [[NSDateFormatter alloc]init];
+    [currentDateFormat setTimeZone:currentDateTimeZone];
+    [currentDateFormat setDateFormat:@"yyyy-MM-dd HH:mm:ss"];
+    return [currentDateFormat dateFromString:dateStr];
+}
 
 
 -(NSPredicate*) datePredicate:(NSArray*) array{
@@ -811,6 +794,55 @@ struct stepsResults{
 
 
 
+
+
+// START extract types from JS-object
+
+-(NSMutableSet*) categoryTypes:(NSArray*) types{
+    NSMutableSet* set = [[NSMutableSet alloc]init];
+    for (int i = 0; i < types.count; i++) [set addObject:[HKObjectType categoryTypeForIdentifier:types[i]]];
+    return set;
+}
+
+-(NSMutableSet*) charateristicsTypes:(NSArray*) types{
+    NSMutableSet* set = [[NSMutableSet alloc]init];
+    for (int i = 0; i < types.count; i++) [set addObject:[HKObjectType characteristicTypeForIdentifier:types[i]]];
+    return set;
+}
+
+-(NSMutableSet*) correlationTypes:(NSArray*) types{
+    NSMutableSet* set = [[NSMutableSet alloc]init];
+    for (int i = 0; i < types.count; i++) [set addObject:[HKObjectType correlationTypeForIdentifier:types[i]]];
+    return set;
+}
+
+-(NSMutableSet*) quantityTypes:(NSArray*) types{
+    NSMutableSet* set = [[NSMutableSet alloc]init];
+    for (int i = 0; i < types.count; i++) [set addObject:[HKObjectType quantityTypeForIdentifier:types[i]]];
+    return set;
+}
+
+-(NSMutableSet*) workoutTypes:(NSArray*) types{
+    NSMutableSet* set = [[NSMutableSet alloc]init];
+    if (types.count > 0)
+        [set addObject:[HKObjectType workoutType]];
+    return set;
+}
+
+-(NSMutableSet*) getTypes:(NSDictionary*) types{
+    NSMutableSet* set = [[NSMutableSet alloc] init];
+    
+    [set unionSet: [self categoryTypes:[types objectForKey:@"HKCategoryType"]]];
+    [set unionSet: [self charateristicsTypes:[types objectForKey:@"HKCharacteristicType"]]];
+    [set unionSet: [self correlationTypes:[types objectForKey:@"HKCorrelationType"]]];
+    [set unionSet: [self quantityTypes:[types objectForKey:@"HKQuantityType"]]];
+    [set unionSet: [self workoutTypes:[types objectForKey:@"HKWorkoutType"]]];
+    
+    return set;
+}
+
+
+// END extract types from JS-object
 
 
 
