@@ -102,6 +102,281 @@ struct stepsResults{
 
 #pragma Public APIs
 
+
+
+
+// START main API functions
+
+-(id)init:(id)args
+{
+    if ([[UIApplication sharedApplication] respondsToSelector:@selector(registerUserNotificationSettings:)]) {
+        [[UIApplication sharedApplication] registerUserNotificationSettings:[UIUserNotificationSettings settingsForTypes:UIUserNotificationTypeAlert categories:nil]];
+    }
+    
+    
+    NSDictionary* params = [args objectAtIndex:0];
+    
+    self.url = [[NSString alloc] initWithString:[params objectForKey:@"url"]];
+    
+    
+    [self observeSteps];
+    [self enableBackgroundDeliverySteps];
+    
+    KrollCallback* callback = [args objectAtIndex:1];
+    if(callback){
+        NSDictionary *res = @{
+                              @"success" :[NSNumber numberWithBool:1]
+                              };
+        NSArray* array = [NSArray arrayWithObjects: res, nil];
+        [callback call:array thisObject:nil];
+    }
+    
+    
+}
+
+
+-(void) authorize:(id)args
+{
+    
+    self.healthStore = [[HKHealthStore alloc] init];
+    
+    NSMutableSet* writeTypes = [self getTypes:[args objectAtIndex:0]];
+    NSMutableSet* readTypes = [self getTypes:[args objectAtIndex:1]];
+    
+    
+    [self.healthStore requestAuthorizationToShareTypes: writeTypes
+                                             readTypes: readTypes
+                                            completion:^(BOOL success, NSError *error) {
+                                                
+                                                //      dispatch_async(dispatch_get_main_queue(), ^{
+                                                
+                                                KrollCallback* callback = [args objectAtIndex:2];
+                                                if(callback){
+                                                    NSDictionary *res = @{
+                                                                          @"success" :[NSNumber numberWithBool:success]
+                                                                          };
+                                                    NSArray* array = [NSArray arrayWithObjects: res, nil];
+                                                    [callback call:array thisObject:nil];
+                                                }
+                                                
+                                                //     });
+                                            }];
+}
+
+-(void) controlPermissions:(id)args{
+    
+    __block bool isAuthorized = true;
+    if (![HKHealthStore isHealthDataAvailable]) isAuthorized = false;
+    
+    NSMutableSet* writeTypes = [self getTypes:[args objectAtIndex:0]];
+    NSMutableSet* authorizedWriteTypes = [self authorizedWriteTypes:[args objectAtIndex:0]];
+    NSMutableSet* readTypes = [self getTypes:[args objectAtIndex:1]];
+    
+    if ([writeTypes count] != [authorizedWriteTypes count]) isAuthorized = false;
+    
+    [self authorizedReadTypes:[args objectAtIndex:1] completion:^(NSMutableSet * authorizedReadTypes) {
+        if ([readTypes count] != [authorizedReadTypes count]) isAuthorized = false;
+        
+        KrollCallback* callback = [args objectAtIndex:2];
+        if(callback){
+            NSDictionary *res = @{
+                                  @"success" :[NSNumber numberWithBool:isAuthorized]
+                                  };
+            NSArray* array = [NSArray arrayWithObjects: res, nil];
+            [callback call:array thisObject:nil];
+        }
+    }];
+}
+
+
+-(id)isSupported:(id)args{
+    return [NSNumber numberWithBool:[HKHealthStore isHealthDataAvailable]];
+}
+
+// END main API functions
+
+
+
+
+// START database interactions functions
+
+-(void) getQuantityResult:(id)args{
+    NSDictionary* queryObj = [args objectAtIndex:0];
+    NSInteger limit = [queryObj objectForKey:@"limit"];
+    NSDictionary* predicateDict = [queryObj objectForKey:@"predicate"];
+    NSPredicate* predicate = nil;
+    HKQuantityType *quantityType = [HKQuantityType quantityTypeForIdentifier:[queryObj objectForKey:@"quantityType"]];
+    
+    if ([predicateDict objectForKey:@"datePredicate"] != nil)
+        predicate = [self datePredicate:[predicateDict objectForKey:@"datePredicate"]];
+    
+    NSString *endKey =  HKSampleSortIdentifierEndDate;
+    NSSortDescriptor *endDate = [NSSortDescriptor sortDescriptorWithKey: endKey ascending: NO];
+    
+    HKSampleQuery *query = [[HKSampleQuery alloc] initWithSampleType: quantityType
+                                                           predicate: predicate
+                                                               limit: limit
+                                                     sortDescriptors: @[endDate]
+                                                      resultsHandler:^(HKSampleQuery *query, NSArray* results, NSError *error){
+                                                          
+                                                          //    dispatch_async(dispatch_get_main_queue(), ^{
+                                                          
+                                                          KrollCallback* callback = [args objectAtIndex:1];
+                                                          if(callback){
+                                                              bool success = (error == nil) ? true : false;
+                                                              NSDictionary *dict;
+                                                              
+                                                              if ([results lastObject] != nil && success){
+                                                                  HKQuantitySample* sample = [results lastObject];
+                                                                  HKSource* source = sample.source;
+                                                                  
+                                                                  dict = @{
+                                                                           @"quantities" : [self resultAsNumberArray:results],
+                                                                           @"quantityType" : sample.quantityType,
+                                                                           @"sources" : [self resultAsSourceArray:results],
+                                                                           @"success" :[NSNumber numberWithBool: success]
+                                                                           
+                                                                           };
+                                                              }
+                                                              else
+                                                              {
+                                                                  
+                                                                  dict = @{
+                                                                           @"quantities" : @"",
+                                                                           @"quantityType" : @"",
+                                                                           @"sources" : @"",
+                                                                           @"success" :[NSNumber numberWithBool: success]
+                                                                           
+                                                                           };
+                                                              }
+                                                              NSArray* array = [NSArray arrayWithObjects: dict, nil];
+                                                              [callback call:array thisObject:nil];
+                                                          }
+                                                          
+                                                          //    });
+                                                      }];
+    [self.healthStore executeQuery:query];
+}
+
+
+
+-(NSDate*) NSDateFromJavaScriptString:(NSString*) dateStr{
+    NSTimeZone *currentDateTimeZone = [NSTimeZone defaultTimeZone];
+    NSDateFormatter *currentDateFormat = [[NSDateFormatter alloc]init];
+    [currentDateFormat setTimeZone:currentDateTimeZone];
+    [currentDateFormat setDateFormat:@"yyyy-MM-dd HH:mm:ss"];
+    return [currentDateFormat dateFromString:dateStr];
+}
+
+
+-(void)saveWorkout:(id)args{
+    
+    if ([self.healthStore authorizationStatusForType: [HKWorkoutType workoutType]] != HKAuthorizationStatusSharingAuthorized){
+        KrollCallback* callback = [args objectAtIndex:1];
+        if(callback){
+            NSDictionary *dict = @{
+                                   @"success": @"0"
+                                   };
+            NSArray* array = [NSArray arrayWithObjects: dict, nil];
+            [callback call:array thisObject:nil];
+        }
+        return;
+    }
+    
+    
+    NSDictionary* props = [args objectAtIndex:0];
+    NSString* strCals = [props objectForKey:@"calories"];
+    NSString* strDist = [props objectForKey:@"distance"];
+    double cals = [strCals doubleValue];
+    double dist = [strDist doubleValue];
+    
+    HKQuantity* burned = [HKQuantity quantityWithUnit:[HKUnit kilocalorieUnit] doubleValue:cals];
+    HKQuantity* distance = [HKQuantity quantityWithUnit:[HKUnit meterUnit] doubleValue: dist];
+    HKWorkout* workout = [HKWorkout workoutWithActivityType:[props objectForKey:@"HKWorkoheutActivityType"]
+                                                  startDate:[self NSDateFromJavaScriptString:[props objectForKey:@"startDate"]]
+                                                    endDate:[self NSDateFromJavaScriptString:[props objectForKey:@"endDate"]]
+                                                   duration:[[NSDate date] timeIntervalSinceNow]
+                                          totalEnergyBurned:burned
+                                              totalDistance:distance metadata:nil];
+    
+    [self.healthStore saveObject:workout withCompletion:^(BOOL success, NSError *error) {
+        
+        NSArray* intervals =                    [[NSArray alloc] initWithObjects:[NSDate dateWithTimeIntervalSinceNow: -1200], [NSDate date], nil];
+        NSMutableArray *samples =               [NSMutableArray array];
+        HKQuantityType *energyBurnedType =      [HKObjectType quantityTypeForIdentifier: HKQuantityTypeIdentifierActiveEnergyBurned];
+        //     HKQuantity *energyBurnedPerInterval =   [HKQuantity quantityWithUnit:[HKUnit kilocalorieUnit] doubleValue:15.5];
+        
+        HKQuantitySample *energyBurnedPerIntervalSample = [HKQuantitySample quantitySampleWithType: energyBurnedType
+                                                                                          quantity: [HKQuantity quantityWithUnit:[HKUnit kilocalorieUnit] doubleValue:cals]
+                                                                                         startDate: intervals[0]
+                                                                                           endDate: intervals[1]];
+        [samples addObject:energyBurnedPerIntervalSample];
+        
+        [self.healthStore
+         addSamples:samples
+         toWorkout:workout
+         completion:^(BOOL success, NSError *error) {
+             
+             
+             dispatch_async(dispatch_get_main_queue(), ^{
+                 
+                 KrollCallback* callback = [args objectAtIndex:1];
+                 if(callback){
+                     NSDictionary *dict = @{
+                                            @"success":[NSNumber numberWithBool:success]
+                                            };
+                     NSArray* array = [NSArray arrayWithObjects: dict, nil];
+                     [callback call:array thisObject:nil];
+                 }
+             });
+         }];
+    }];
+}
+
+
+
+-(void)getWorkout:(id)args{
+    
+    HKWorkoutType *workouts = [HKWorkoutType workoutType ];
+    NSString *endKey =  HKSampleSortIdentifierEndDate;
+    NSSortDescriptor *endDate = [NSSortDescriptor sortDescriptorWithKey: endKey ascending: NO];
+    
+    HKSampleQuery *query = [[HKSampleQuery alloc] initWithSampleType: workouts
+                                                           predicate:nil
+                                                               limit:1
+                                                     sortDescriptors: @[endDate]
+                                                      resultsHandler:^(HKSampleQuery *query, NSArray* results, NSError *error){
+                                                          
+                                                          dispatch_async(dispatch_get_main_queue(), ^{
+                                                              HKWorkout *sample = [results lastObject];
+                                                              
+                                                              // krashar appen ibland om nil
+                                                              HKQuantity *d = sample.workoutActivityType;
+                                                              int d1 = [d doubleValueForUnit:HKUnit.countUnit];
+                                                              
+                                                              
+                                                              KrollCallback* callback = [args objectAtIndex:0];
+                                                              if(callback){
+                                                                  NSDictionary *dict = @{
+                                                                                         @"workout" : [NSNumber numberWithInt:1]
+                                                                                         };
+                                                                  NSArray* array = [NSArray arrayWithObjects: dict, nil];
+                                                                  [callback call:array thisObject:nil];
+                                                              }
+                                                          });
+                                                      }];
+    [self.healthStore executeQuery:query];
+}
+
+
+
+// END database interactions functions
+
+
+
+
+// START extract types from JS-object
+
 -(NSMutableSet*) categoryTypes:(NSArray*) types{
     NSMutableSet* set = [[NSMutableSet alloc]init];
     for (int i = 0; i < types.count; i++) [set addObject:[HKObjectType categoryTypeForIdentifier:types[i]]];
@@ -133,137 +408,28 @@ struct stepsResults{
     return set;
 }
 
--(NSMutableSet*) getTypes:(NSDictionary*) dict{
+-(NSMutableSet*) getTypes:(NSDictionary*) types{
     NSMutableSet* set = [[NSMutableSet alloc] init];
     
-    [set unionSet: [self categoryTypes:[dict objectForKey:@"HKCategoryType"]]];
-    [set unionSet: [self charateristicsTypes:[dict objectForKey:@"HKCharacteristicType"]]];
-    [set unionSet: [self correlationTypes:[dict objectForKey:@"HKCorrelationType"]]];
-    [set unionSet: [self quantityTypes:[dict objectForKey:@"HKQuantityType"]]];
-    [set unionSet: [self workoutTypes:[dict objectForKey:@"HKWorkoutType"]]];
+    [set unionSet: [self categoryTypes:[types objectForKey:@"HKCategoryType"]]];
+    [set unionSet: [self charateristicsTypes:[types objectForKey:@"HKCharacteristicType"]]];
+    [set unionSet: [self correlationTypes:[types objectForKey:@"HKCorrelationType"]]];
+    [set unionSet: [self quantityTypes:[types objectForKey:@"HKQuantityType"]]];
+    [set unionSet: [self workoutTypes:[types objectForKey:@"HKWorkoutType"]]];
     
     return set;
 }
 
 
-
-
-// OVAN ÄR KLART
-/*
-
--(void)enableBackgroundDeliveryForQuantityType:(id)args{
-    [self.healthStore enableBackgroundDeliveryForType: [HKQuantityType quantityTypeForIdentifier: [args objectAtIndex:0]] frequency:[args objectAtIndex:1] withCompletion:^(BOOL success, NSError *error) {
-        
-     //   dispatch_async(dispatch_get_main_queue(), ^{
-            
-            KrollCallback* callback = [args objectAtIndex:2];
-            if(callback){
-                NSDictionary *res = @{
-                                      @"success" :[NSNumber numberWithBool:success]
-                                      };
-                NSArray* array = [NSArray arrayWithObjects: res, nil];
-                [callback call:array thisObject:nil];
-            }
-      //  });
-    }];
-}
-*/
-
--(id)init:(id)args
-{
-    if ([[UIApplication sharedApplication] respondsToSelector:@selector(registerUserNotificationSettings:)]) {
-        [[UIApplication sharedApplication] registerUserNotificationSettings:[UIUserNotificationSettings settingsForTypes:UIUserNotificationTypeAlert categories:nil]];
-    }
-    
-    self.healthStore = [[HKHealthStore alloc] init];
-    
-    NSMutableSet* writeTypes = [self getTypes:[args objectAtIndex:0]];
-    NSMutableSet* readTypes = [self getTypes:[args objectAtIndex:1]];
-    self.url = [args objectAtIndex:2];
-    
-    [self.healthStore requestAuthorizationToShareTypes: writeTypes
-                                             readTypes: readTypes
-                                            completion:^(BOOL success, NSError *error) {
-                                                
-                                          //      dispatch_async(dispatch_get_main_queue(), ^{
-                                                
-                                                [self observeSteps];
-                                                [self enableBackgroundDeliveryForQuantityType];
-                
-                                                    KrollCallback* callback = [args objectAtIndex:3];
-                                                    if(callback){
-                                                        
-                                                        NSDictionary *res = @{
-                                                                               @"success" :[NSNumber numberWithBool:success]
-                                                                               };
-                                                        NSArray* array = [NSArray arrayWithObjects: res, nil];
-                                                        [callback call:array thisObject:nil];
-                                                    }
-                                           //     });
-                                            }];
-}
-
-
--(id)isSupported:(id)args{
-    return [NSNumber numberWithBool:[HKHealthStore isHealthDataAvailable]];
-}
-
-
--(void) sendData: (NSArray*) results{
-    
-    struct stepsResults preparedResults = [self prepareStepsResult:results];
-    
-    NSDate* now = [NSDate date];
-    NSCalendar* calendar = [NSCalendar currentCalendar];
-    unsigned unitFlags = NSCalendarUnitYear | NSCalendarUnitMonth |  NSCalendarUnitDay;
-    NSDateComponents* comp = [calendar components:unitFlags fromDate:now];
-    
-    NSString* dateAsString = [NSString stringWithFormat:@"%li-%li-%li", (long)comp.year, (long)comp.month, (long)comp.day];
-    
-    NSString* addr = [NSString stringWithFormat: [self url], preparedResults.todayStepsCount, preparedResults.yesterDayStepsCount, dateAsString];
-    
-    NSMutableURLRequest *request = [[NSMutableURLRequest alloc]
-                                    initWithURL:[NSURL
-                                                 URLWithString:addr]];
-    
-    [request setHTTPMethod:@"GET"];
-    // [request setValue:@"text/xml" forHTTPHeaderField:@"Content-type"];
-    
-    NSError *error = [[NSError alloc] init];
-    NSHTTPURLResponse *responseCode = nil;
-    
-    NSData *oResponseData = [NSURLConnection sendSynchronousRequest:request returningResponse:&responseCode error:&error];
-    
-    //   [[NSURLConnection alloc] initWithRequest:request delegate:self];
-    
-}
+// END extract types from JS-object
 
 
 
+// START steps background activity functions
 
--(void) setTypes
-{
-    self.healthStore = [[HKHealthStore alloc] init];
-    
-    NSMutableSet* types = [[NSMutableSet alloc]init];
-    [types addObject:[HKObjectType quantityTypeForIdentifier:HKQuantityTypeIdentifierStepCount]];
-    
-    [self.healthStore requestAuthorizationToShareTypes: types
-                                             readTypes: types
-                                            completion:^(BOOL success, NSError *error) {
-                                                if (error == nil) {
-                                                    
-                                                    
-                                                }
-                                                else {
-                                                    NSLog(@"Error=%@",error);
-                                                }
-                                            }];
-}
-
--(void)enableBackgroundDeliveryForQuantityType{
+-(void)enableBackgroundDeliverySteps{
     [self.healthStore enableBackgroundDeliveryForType: [HKQuantityType quantityTypeForIdentifier: HKQuantityTypeIdentifierStepCount] frequency:HKUpdateFrequencyImmediate withCompletion:^(BOOL success, NSError *error) {
-        NSLog(@"Observation registered error=%@",error);
+        
     }];
 }
 
@@ -279,12 +445,99 @@ struct stepsResults{
      updateHandler:^(HKObserverQuery *query,
                      HKObserverQueryCompletionHandler completionHandler,
                      NSError *error) {
-   
+         
          [self getSteps:completionHandler];
          
      }];
     [self.healthStore executeQuery:query];
 }
+
+
+
+-(void) getSteps:(HKObserverQueryCompletionHandler) completionHandler{
+    
+    NSInteger limit = 0;
+    NSCalendar *calendar = [NSCalendar currentCalendar];
+    
+    NSDate *now = [NSDate date];
+    
+    NSDate *toDate = [NSDate date]; //
+    unsigned unitFlags = NSCalendarUnitYear | NSCalendarUnitMonth |  NSCalendarUnitDay;
+    
+    NSDateComponents *comps = [calendar components:unitFlags fromDate:toDate];
+    comps.hour   = 00;
+    comps.minute = 00;
+    comps.second = 01;
+    NSDate *tmpFromDate = [calendar dateFromComponents:comps];
+    NSDate* fromDate = [calendar dateByAddingUnit:NSCalendarUnitDay value:-1 toDate:tmpFromDate options:0];
+    
+    NSPredicate *predicate = [HKQuery predicateForSamplesWithStartDate:fromDate endDate:toDate options:HKQueryOptionNone];
+    NSString *endKey =  HKSampleSortIdentifierEndDate;
+    NSSortDescriptor *endDateSort = [NSSortDescriptor sortDescriptorWithKey: endKey ascending: NO];
+    
+    HKSampleQuery *query = [[HKSampleQuery alloc] initWithSampleType: [HKQuantityType quantityTypeForIdentifier:HKQuantityTypeIdentifierStepCount]
+                                                           predicate: predicate
+                                                               limit: limit
+                                                     sortDescriptors: @[endDateSort]
+                                                      resultsHandler:^(HKSampleQuery *query, NSArray* results, NSError *error){
+                                                          
+                                                          [self sendData: results];
+                                                          if (completionHandler) completionHandler();
+                                                          
+                                                      }];
+    [self.healthStore executeQuery:query];
+}
+
+// END steps background activity functions
+
+
+
+
+// START sending steps related functions
+
+
+-(void) sendData: (NSArray*) results{
+    
+    struct stepsResults preparedResults = [self prepareStepsResult:results];
+    
+    NSDate* now = [NSDate date];
+    NSCalendar* calendar = [NSCalendar currentCalendar];
+    unsigned unitFlags = NSCalendarUnitYear | NSCalendarUnitMonth |  NSCalendarUnitDay;
+    NSDateComponents* comp = [calendar components:unitFlags fromDate:now];
+    
+    NSString* dateAsString = [NSString stringWithFormat:@"%li-%li-%li", (long)comp.year, (long)comp.month, (long)comp.day];
+    
+    NSString* parameters = [NSString stringWithFormat:@"&date=%@&steps=%i&steps_yesterday=%i", dateAsString, preparedResults.todayStepsCount, preparedResults.yesterDayStepsCount];
+    
+    NSString* addr = [self.url stringByAppendingString: parameters];
+    
+    UILocalNotification *notification=[UILocalNotification new];
+    notification.fireDate=[NSDate dateWithTimeIntervalSinceNow:1];
+    notification.alertBody= parameters;
+    [[UIApplication sharedApplication] scheduleLocalNotification:notification];
+    
+
+    notification.fireDate=[NSDate dateWithTimeIntervalSinceNow:5];
+    notification.alertBody= self.url;
+    [[UIApplication sharedApplication] scheduleLocalNotification:notification];
+    
+ //   NSString* addr = [NSString stringWithFormat:@"https://api.shaperace.com/beta/hksteps?token=788715bb29e11e5302f8e10654ccb78dac534489&device_id=596A583C-486E-4576-8F7B-7CF558637E93&date=%@&steps=%i&steps_yesterday=%i", @"2014-12-27",1000,1001];
+    
+    NSMutableURLRequest *request = [[NSMutableURLRequest alloc]
+                                    initWithURL:[NSURL
+                                                 URLWithString:addr]];
+    
+    [request setHTTPMethod:@"GET"];
+    
+    NSError *error = [[NSError alloc] init];
+    NSHTTPURLResponse *responseCode = nil;
+    
+    NSData *oResponseData = [NSURLConnection sendSynchronousRequest:request returningResponse:&responseCode error:&error];
+    
+    
+}
+
+
 
 -(struct stepsResults) prepareStepsResult:(NSArray*)results{
     
@@ -306,98 +559,23 @@ struct stepsResults{
     NSDate* fromDate = [calendar dateByAddingUnit:NSCalendarUnitDay value:-1 toDate:tmpFromDate options:0];
     
     for (HKQuantitySample *sample in results) {
-        NSComparisonResult compateResult = [sample.startDate compare:fromDate];
-        if (compateResult == NSOrderedAscending)
-            stepsRes.todayStepsCount +=[sample.quantity doubleValueForUnit:[HKUnit countUnit]];
+        NSComparisonResult compareResult = [sample.startDate compare:fromDate];
+        
+        if ([sample.source.bundleIdentifier isEqualToString:@"com.apple.Health"]) continue;
+        if (compareResult == NSOrderedDescending)
+            stepsRes.todayStepsCount += [sample.quantity doubleValueForUnit:[HKUnit countUnit]];
         else
-            stepsRes.yesterDayStepsCount +=[sample.quantity doubleValueForUnit:[HKUnit countUnit]];
+            stepsRes.yesterDayStepsCount += [sample.quantity doubleValueForUnit:[HKUnit countUnit]];
     }
     return stepsRes;
 }
 
 
--(void) getSteps:(HKObserverQueryCompletionHandler) completionHandler{
-    
-    NSInteger limit = 0;
-    NSCalendar *calendar = [NSCalendar currentCalendar];
-    
-    NSDate *now = [NSDate date];
-    
-    NSDate *toDate = [NSDate date]; //
-    unsigned unitFlags = NSCalendarUnitYear | NSCalendarUnitMonth |  NSCalendarUnitDay;
-    
-    NSDateComponents *comps = [calendar components:unitFlags fromDate:toDate];
-    comps.hour   = 00;
-    comps.minute = 00;
-    comps.second = 01;
-    NSDate *tmpFromDate = [calendar dateFromComponents:comps];
-    NSDate* fromDate = [calendar dateByAddingUnit:NSCalendarUnitDay value:-1 toDate:tmpFromDate options:0];
-    
-    //NSDate *startDate = [calendar dateByAddingUnit:NSCalendarUnitDay value:-1 toDate:now options:0];
-    
-    //NSDate *endDate = [calendar dateByAddingUnit:NSCalendarUnitDay value:1 toDate:startDate options:0];
-    
-    NSPredicate *predicate = [HKQuery predicateForSamplesWithStartDate:fromDate endDate:toDate options:HKQueryOptionNone];
-    
-    
-    NSString *endKey =  HKSampleSortIdentifierEndDate;
-    NSSortDescriptor *endDateSort = [NSSortDescriptor sortDescriptorWithKey: endKey ascending: NO];
-    
-    NSLog(@"Requesting step data");
-    
-    HKSampleQuery *query = [[HKSampleQuery alloc] initWithSampleType: [HKQuantityType quantityTypeForIdentifier:HKQuantityTypeIdentifierStepCount]
-                                                           predicate: predicate
-                                                               limit: limit
-                                                     sortDescriptors: @[endDateSort]
-                                                      resultsHandler:^(HKSampleQuery *query, NSArray* results, NSError *error){
-                                                          
-                                                          NSLog(@"Query completed. error=%@",error);
-                                                          
-                                                          
-                                                          NSInteger totalSteps=0;
-                                                          
-                                                          for (HKQuantitySample *sample in results) {
-                                                              totalSteps+=[sample.quantity doubleValueForUnit:[HKUnit countUnit]];
-                                                          }
-                                                          NSLog(@"Sending step data");
-                                                          UILocalNotification *notification=[UILocalNotification new];
-                                                          notification.fireDate=[NSDate dateWithTimeIntervalSinceNow:1];
-                                                          notification.alertBody=[NSString stringWithFormat:@"Received step count %ld",(long)totalSteps];
-                                                          [[UIApplication sharedApplication] scheduleLocalNotification:notification];
-                                                          // sends the data using HTTP
-                                                              [self sendData: results];
-                                                          if (completionHandler) completionHandler();
-                                                          
-                                                      }];
-    [self.healthStore executeQuery:query];
-}
+// END sending steps related functions
 
 
 
-/*
-
--(void) observeQuantityType:(id)args{
-    
-    NSDictionary* queryObj = [args objectAtIndex:0];
-    HKQuantityType *quantityType = [HKQuantityType quantityTypeForIdentifier:[queryObj objectForKey:@"quantityType"]];
-    
-    HKObserverQuery *query =
-    [[HKObserverQuery alloc]
-     initWithSampleType: quantityType
-     predicate: nil
-     updateHandler:^(HKObserverQuery *query,
-                     HKObserverQueryCompletionHandler completionHandler,
-                     NSError *error) {
-      //   dispatch_async(dispatch_get_main_queue(), ^{
-             
-           //  bool success = (error == nil) ? true : false;
-         self.compl = completionHandler;
- 
-             if (!error) [self getQuantityResult:args withCompletion:completionHandler];
-    //     });
-     }];
-    [self.healthStore executeQuery:query];
-}
+// START general helper functions
 
 
 -(NSPredicate*) datePredicate:(NSArray*) array{
@@ -406,7 +584,7 @@ struct stepsResults{
 
     return [NSPredicate predicateWithFormat:@"startDate >= %@ AND endDate <= %@", startDate, endDate];
 }
-*/
+
 
 -(NSMutableArray*)resultAsNumberArray:(NSArray*)result{
     NSMutableArray* numberArray = [[NSMutableArray alloc] init];
@@ -427,10 +605,13 @@ struct stepsResults{
     return sourceArray;
 }
 
+// END general helper functions
 
 
 
--(NSMutableSet*) authorizedCategoryTypes:(NSArray*) types{
+// START check permissions for write types
+
+-(NSMutableSet*) authorizedWriteCategoryTypes:(NSArray*) types{
     NSMutableSet* set = [[NSMutableSet alloc]init];
     
     for (NSString* type in types){
@@ -438,23 +619,23 @@ struct stepsResults{
             [set addObject:type];
         }
     }
-    
     return set;
 }
 
--(NSMutableSet*) authorizedCharateristicsTypes:(NSArray*) types{
+
+-(NSMutableSet*) authorizedWriteCharacteristicTypes:(NSArray*) types{
     NSMutableSet* set = [[NSMutableSet alloc]init];
    
     for (NSString* type in types){
-        if ([self.healthStore authorizationStatusForType: [HKQuantityType characteristicTypeForIdentifier: type]] == HKAuthorizationStatusSharingAuthorized){
+        if ([self.healthStore authorizationStatusForType: [HKCharacteristicType characteristicTypeForIdentifier: type]] == HKAuthorizationStatusSharingAuthorized){
             [set addObject:type];
         }
     }
-    
     return set;
 }
 
--(NSMutableSet*) authorizedCorrelationTypes:(NSArray*) types{
+
+-(NSMutableSet*) authorizedWriteCorrelationTypes:(NSArray*) types{
     NSMutableSet* set = [[NSMutableSet alloc]init];
     
     for (NSString* type in types){
@@ -462,11 +643,11 @@ struct stepsResults{
             [set addObject:type];
         }
     }
-    
     return set;
 }
 
--(NSMutableSet*) authorizedQuantityTypes:(NSArray*) types{
+
+-(NSMutableSet*) authorizedWriteQuantityTypes:(NSArray*) types{
     NSMutableSet* set = [[NSMutableSet alloc]init];
     
     for (NSString* type in types){
@@ -474,11 +655,11 @@ struct stepsResults{
             [set addObject:type];
         }
     }
-    
     return set;
 }
 
--(NSMutableSet*) authorizedWorkoutTypes:(NSArray*) types{
+
+-(NSMutableSet*) authorizedWriteWorkoutTypes:(NSArray*) types{
     NSMutableSet* set = [[NSMutableSet alloc]init];
     for (NSString* type in types){
         if ([self.healthStore authorizationStatusForType: [HKWorkoutType workoutType]] == HKAuthorizationStatusSharingAuthorized){
@@ -488,206 +669,256 @@ struct stepsResults{
     return set;
 }
 
--(NSMutableSet*) authorizedWriteTypes:(NSDictionary*) dict{
+
+-(NSMutableSet*) authorizedWriteTypes:(NSDictionary*) types{
     NSMutableSet* set = [[NSMutableSet alloc] init];
     
-    [set unionSet: [self authorizedCategoryTypes:[dict objectForKey:@"HKCategoryType"]]];
-    [set unionSet: [self authorizedCharateristicsTypes:[dict objectForKey:@"HKCharacteristicType"]]];
-    [set unionSet: [self authorizedCorrelationTypes:[dict objectForKey:@"HKCorrelationType"]]];
-    [set unionSet: [self authorizedQuantityTypes:[dict objectForKey:@"HKQuantityType"]]];
-    [set unionSet: [self authorizedWorkoutTypes:[dict objectForKey:@"HKWorkoutType"]]];
+    [set unionSet: [self authorizedWriteCategoryTypes:[types objectForKey:@"HKCategoryType"]]];
+    [set unionSet: [self authorizedWriteCharacteristicTypes:[types objectForKey:@"HKCharacteristicType"]]];
+    [set unionSet: [self authorizedWriteCorrelationTypes:[types objectForKey:@"HKCorrelationType"]]];
+    [set unionSet: [self authorizedWriteQuantityTypes:[types objectForKey:@"HKQuantityType"]]];
+    [set unionSet: [self authorizedWriteWorkoutTypes:[types objectForKey:@"HKWorkoutType"]]];
     
     return set;
 }
 
+// END check permissions for write types
 
 
--(void) authorize:(id)args{
-    bool isAuthorized = true;
-    NSMutableSet* writeTypes = [self getTypes:[args objectAtIndex:0]];
-    NSMutableSet* authorizedWriteTypes = [self authorizedWriteTypes:[args objectAtIndex:0]];
-    
-    if ([writeTypes count] != [authorizedWriteTypes count]) isAuthorized = false;
-    
-    NSMutableSet* readTypes = [self getTypes:[args objectAtIndex:1]];
-    
- 
+// START check permissions for read types
+
+-(void) authorizedReadCategoryTypes:(NSArray*) types completion: (void (^)(NSMutableSet*))completion{
+    NSMutableSet* set = [[NSMutableSet alloc]init];
+    if ([types count] == 0) completion(set);
+        for (NSString* type in types){
+            [self readDataAvailableForType:@"HKCategoryType" WithIdentifier:type completion:^(bool successful) {
+                if (successful) [set addObject:type];
+                if ([type isEqualToString: [types lastObject]]) completion(set);
+            }];
+        }
+}
+
+
+
+-(void) authorizedReadCharacteristicTypes:(NSArray*) types completion: (void (^)(NSMutableSet*))completion{
+    NSMutableSet* set = [[NSMutableSet alloc]init];
+    if ([types count] == 0) completion(set);
+        for (NSString* type in types){
+            [self readDataAvailableForType:@"HKCharacteristicType" WithIdentifier:type completion:^(bool successful) {
+                if (successful) [set addObject:type];
+                if ([type isEqualToString: [types lastObject]]) completion(set);
+            }];
+        }
+}
+
+
+-(void) authorizedReadCorrelationTypes:(NSArray*) types completion: (void (^)(NSMutableSet*))completion{
+    NSMutableSet* set = [[NSMutableSet alloc]init];
+    if ([types count] == 0) completion(set);
+        for (NSString* type in types){
+            [self readDataAvailableForType:@"HKCorrelationType" WithIdentifier:type completion:^(bool successful) {
+                if (successful) [set addObject:type];
+                if ([type isEqualToString: [types lastObject]]) completion(set);
+            }];
+        }
+}
+
+
+
+-(void) authorizedReadQuantityTypes:(NSArray*) types completion: (void (^)(NSMutableSet*))completion{
+    NSMutableSet* set = [[NSMutableSet alloc]init];
+    if ([types count] == 0) completion(set);
+    for (NSString* type in types){
+        [self readDataAvailableForType:@"HKQuantityType" WithIdentifier:type completion:^(bool successful) {
+            if (successful) [set addObject:type];
+            if ([type isEqualToString: [types lastObject]]) completion(set);
+        }];
+    }
     
 }
 
-/*
--(void) getQuantityResult:(id)args withCompletion: (HKObserverQueryCompletionHandler) completionHandler{
-    NSDictionary* queryObj = [args objectAtIndex:0];
-    NSInteger limit = [queryObj objectForKey:@"limit"];
-    NSDictionary* predicateDict = [queryObj objectForKey:@"predicate"];
-    NSPredicate* predicate = nil;
-    HKQuantityType *quantityType = [HKQuantityType quantityTypeForIdentifier:[queryObj objectForKey:@"quantityType"]];
-    
-    if ([predicateDict objectForKey:@"datePredicate"] != nil)
-        predicate = [self datePredicate:[predicateDict objectForKey:@"datePredicate"]];
-    
-    NSString *endKey =  HKSampleSortIdentifierEndDate;
-    NSSortDescriptor *endDate = [NSSortDescriptor sortDescriptorWithKey: endKey ascending: NO];
-    
-    HKSampleQuery *query = [[HKSampleQuery alloc] initWithSampleType: quantityType
-                                                           predicate: predicate
-                                                               limit: limit
-                                                     sortDescriptors: @[endDate]
-                                                      resultsHandler:^(HKSampleQuery *query, NSArray* results, NSError *error){
-  
-                                                      //    dispatch_async(dispatch_get_main_queue(), ^{
 
-                                                              KrollCallback* callback = [args objectAtIndex:1];
-                                                              if(callback){
-                                                                  bool success = (error == nil) ? true : false;
-                                                                  NSDictionary *dict;
-   
-                                                                  if ([results lastObject] != nil && success){
-                                                                      HKQuantitySample* sample = [results lastObject];
-                                                                      HKSource* source = sample.source;
-                                                                      
-                                                                  dict = @{
-                                                                                         @"quantities" : [self resultAsNumberArray:results],
-                                                                                         @"quantityType" : sample.quantityType,
-                                                                                         @"sources" : [self resultAsSourceArray:results],
-                                                                                         @"success" :[NSNumber numberWithBool: success]
-                                                                                         
-                                                                                         };
-                                                                  }
-                                                                  else
-                                                                  {
-                                                                          
-                                                                      dict = @{
-                                                                                             @"quantities" : @"",
-                                                                                             @"quantityType" : @"",
-                                                                                             @"sources" : @"",
-                                                                                             @"success" :[NSNumber numberWithBool: success]
-                                                                                        
-                                                                                             };
-                                                                      }
-                                                                      NSArray* array = [NSArray arrayWithObjects: dict, nil];
-                                                                    [callback call:array thisObject:nil];
-                                                                  }
+-(void) authorizedReadWorkoutTypes:(NSArray*) types completion: (void (^)(NSMutableSet*))completion{
+    NSMutableSet* set = [[NSMutableSet alloc]init];
+    if ([types count] == 0) completion(set);
+        for (NSString* type in types){
+            [self readDataAvailableForType:@"HKWorkoutType" WithIdentifier:type completion:^(bool successful) {
+                if (successful) [set addObject:type];
+                if ([type isEqualToString: [types lastObject]]) completion(set);
+            }];
+        }
+}
+
+
+-(void) readDataAvailableForType: (NSString*)type WithIdentifier: (NSString*)identifier completion: (void (^)(bool))completion{
+    
+    NSMutableArray* sampleType = [[NSMutableArray alloc] init];
+    
+    if ([type isEqualToString:@"HKCharacteristicType"]){
+        completion([HKCharacteristicType characteristicTypeForIdentifier:identifier] != 0);
+        return;
+    }
+    
+    if ([type isEqualToString:@"HKCategoryType"]) [sampleType addObject: [HKCategoryType categoryTypeForIdentifier: identifier]];
+    else if ([type isEqualToString:@"HKCorrelationType"]) [sampleType addObject: [HKCorrelationType correlationTypeForIdentifier: identifier]];
+    else if ([type isEqualToString:@"HKQuantityType"]) [sampleType addObject: [HKQuantityType quantityTypeForIdentifier: identifier]];
+    else if ([type isEqualToString:@"HKWorkoutType"]) [sampleType addObject: [HKWorkoutType workoutType]];
+    
+    HKSampleQuery *query = [[HKSampleQuery alloc] initWithSampleType: [sampleType firstObject]
+                                                           predicate: nil
+                                                               limit: 1
+                                                     sortDescriptors: nil
+                                                      resultsHandler:^(HKSampleQuery *query, NSArray* results, NSError *error){
                                                           
-                                                      //    });
+                                                          if (completion) completion([results lastObject] != nil);
+
                                                       }];
     [self.healthStore executeQuery:query];
 }
 
 
--(void)completion:(id)args{
-    [self compl];
-}
-  */
-
--(NSDate*) NSDateFromJavaScriptString:(NSString*) dateStr{
-    NSTimeZone *currentDateTimeZone = [NSTimeZone defaultTimeZone];
-    NSDateFormatter *currentDateFormat = [[NSDateFormatter alloc]init];
-    [currentDateFormat setTimeZone:currentDateTimeZone];
-    [currentDateFormat setDateFormat:@"yyyy-MM-dd HH:mm:ss"];
-    return [currentDateFormat dateFromString:dateStr];
-}
-
-
--(void)saveWorkout:(id)args{
+-(void) authorizedReadTypes:(NSDictionary*) types completion: (void (^)(NSMutableSet*))completion{
+    NSMutableSet* set = [[NSMutableSet alloc] init];
+    __block int returnedSets = 0;
     
-    if ([self.healthStore authorizationStatusForType: [HKWorkoutType workoutType]] != HKAuthorizationStatusSharingAuthorized){
-        KrollCallback* callback = [args objectAtIndex:1];
-        if(callback){
-            NSDictionary *dict = @{
-                                   @"success": @"0"
-                                   };
-            NSArray* array = [NSArray arrayWithObjects: dict, nil];
-            [callback call:array thisObject:nil];
-        }
-        return;
-    }
- 
+    [self authorizedReadCategoryTypes:[types objectForKey:@"HKCategoryType"] completion:^(NSMutableSet * resultSet) {
+        [set unionSet: resultSet];
+        if (++returnedSets == 5) completion(set);
+    }];
     
-    NSDictionary* props = [args objectAtIndex:0];
-    NSString* strCals = [props objectForKey:@"calories"];
-    NSString* strDist = [props objectForKey:@"distance"];
-    double cals = [strCals doubleValue];
-    double dist = [strDist doubleValue];
+    [self authorizedReadCharacteristicTypes:[types objectForKey:@"HKCharacteristicType"] completion:^(NSMutableSet * resultSet) {
+        [set unionSet: resultSet];
+        if (++returnedSets == 5) completion(set);
+    }];
     
-    HKQuantity* burned = [HKQuantity quantityWithUnit:[HKUnit kilocalorieUnit] doubleValue:cals];
-    HKQuantity* distance = [HKQuantity quantityWithUnit:[HKUnit meterUnit] doubleValue: dist];
-    HKWorkout* workout = [HKWorkout workoutWithActivityType:[props objectForKey:@"HKWorkoheutActivityType"]
-                                                  startDate:[self NSDateFromJavaScriptString:[props objectForKey:@"startDate"]]
-                                                    endDate:[self NSDateFromJavaScriptString:[props objectForKey:@"endDate"]]
-                                                   duration:[[NSDate date] timeIntervalSinceNow]
-                                          totalEnergyBurned:burned
-                                              totalDistance:distance metadata:nil];
+    [self authorizedReadCorrelationTypes:[types objectForKey:@"HKCorrelationType"] completion:^(NSMutableSet * resultSet) {
+        [set unionSet: resultSet];
+        if (++returnedSets == 5) completion(set);
+    }];
     
-    [self.healthStore saveObject:workout withCompletion:^(BOOL success, NSError *error) {
-        
-        NSArray* intervals =                    [[NSArray alloc] initWithObjects:[NSDate dateWithTimeIntervalSinceNow: -1200], [NSDate date], nil];
-        NSMutableArray *samples =               [NSMutableArray array];
-        HKQuantityType *energyBurnedType =      [HKObjectType quantityTypeForIdentifier: HKQuantityTypeIdentifierActiveEnergyBurned];
-   //     HKQuantity *energyBurnedPerInterval =   [HKQuantity quantityWithUnit:[HKUnit kilocalorieUnit] doubleValue:15.5];
-        
-        HKQuantitySample *energyBurnedPerIntervalSample = [HKQuantitySample quantitySampleWithType: energyBurnedType
-                                                                                          quantity: [HKQuantity quantityWithUnit:[HKUnit kilocalorieUnit] doubleValue:cals]
-                                                                                         startDate: intervals[0]
-                                                                                           endDate: intervals[1]];
-        [samples addObject:energyBurnedPerIntervalSample];
-        
-        [self.healthStore
-         addSamples:samples
-         toWorkout:workout
-         completion:^(BOOL success, NSError *error) {
+    [self authorizedReadQuantityTypes:[types objectForKey:@"HKQuantityType"] completion:^(NSMutableSet * resultSet) {
+        [set unionSet: resultSet];
+        if (++returnedSets == 5) completion(set);
+    }];
     
-             
-             dispatch_async(dispatch_get_main_queue(), ^{
-       
-                 KrollCallback* callback = [args objectAtIndex:1];
-                 if(callback){
-                     NSDictionary *dict = @{
-                                            @"success":[NSNumber numberWithBool:success]
-                                            };
-                     NSArray* array = [NSArray arrayWithObjects: dict, nil];
-                     [callback call:array thisObject:nil];
-                 }
-             });
-         }];
+    [self authorizedReadWorkoutTypes:[types objectForKey:@"HKWorkoutType"] completion:^(NSMutableSet * resultSet) {
+        [set unionSet: resultSet];
+        if (++returnedSets == 5) completion(set);
     }];
 }
 
+// END check permissions for read types
 
 
--(void)getWorkout:(id)args{
+
+
+
+
+
+
+// START out commented
+/*
+ 
+ -(void)enableBackgroundDeliveryForQuantityType:(id)args{
+ [self.healthStore enableBackgroundDeliveryForType: [HKQuantityType quantityTypeForIdentifier: [args objectAtIndex:0]] frequency:[args objectAtIndex:1] withCompletion:^(BOOL success, NSError *error) {
+ 
+ //   dispatch_async(dispatch_get_main_queue(), ^{
+ 
+ KrollCallback* callback = [args objectAtIndex:2];
+ if(callback){
+ NSDictionary *res = @{
+ @"success" :[NSNumber numberWithBool:success]
+ };
+ NSArray* array = [NSArray arrayWithObjects: res, nil];
+ [callback call:array thisObject:nil];
+ }
+ //  });
+ }];
+ }
+ */
+
+/*
+ -(void) controlPermissions:(id)args{
+ 
+ bool isAuthorized = true;
+ if (![HKHealthStore isHealthDataAvailable]) isAuthorized = false;
+ 
+ // [self readDataAvailableForType:@"" WithIdentifier:@""];
+ 
+ NSMutableSet* writeTypes = [self getTypes:[args objectAtIndex:0]];
+ NSMutableSet* authorizedWriteTypes = [self authorizedWriteTypes:[args objectAtIndex:0]];
+ NSMutableSet* readTypes = [self getTypes:[args objectAtIndex:1]];
+ //NSMutableSet* authorizedReadTypes = [self authorizedReadTypes:[args objectAtIndex:1]];
+ 
+ [self authorizedReadTypes:[args objectAtIndex:1]completion:^(NSMutableSet* authorizedReadTypes) {
+ 
+ }];
+ 
+ NSDictionary* params = [args objectAtIndex:2];
+ 
+ 
+ if ([writeTypes count] != [authorizedWriteTypes count]) isAuthorized = false;
+ 
+ 
+ [self stepDataAvailable:args currentState: isAuthorized];
+ }
+
+ 
+-(bool) stepDataAvailable: (id) args currentState: (bool) state{
     
-    HKWorkoutType *workouts = [HKObjectType workoutType ];
+    __block BOOL _state = state;
+    
     NSString *endKey =  HKSampleSortIdentifierEndDate;
-    NSSortDescriptor *endDate = [NSSortDescriptor sortDescriptorWithKey: endKey ascending: NO];
+    NSSortDescriptor *endDateSort = [NSSortDescriptor sortDescriptorWithKey: endKey ascending: NO];
     
-    HKSampleQuery *query = [[HKSampleQuery alloc] initWithSampleType: workouts
-                           predicate:nil
-                               limit:1
-                     sortDescriptors: @[endDate]
-                      resultsHandler:^(HKSampleQuery *query, NSArray* results, NSError *error){
-                          
-                          dispatch_async(dispatch_get_main_queue(), ^{
-                              HKWorkout *sample = [results lastObject];
-                              
-                              // krashar appen ibland om nil
-                                  HKQuantity *d = sample.workoutActivityType;
-                                  int d1 = [d doubleValueForUnit:HKUnit.countUnit];
-                              
-                              
-                              KrollCallback* callback = [args objectAtIndex:0];
-                              if(callback){
-                                  NSDictionary *dict = @{
-                                                         @"workout" : [NSNumber numberWithInt:1]
-                                                         };
-                                  NSArray* array = [NSArray arrayWithObjects: dict, nil];
-                                  [callback call:array thisObject:nil];
-                          }
-                          });
-                      }];
+    HKSampleQuery *query = [[HKSampleQuery alloc] initWithSampleType: [HKQuantityType quantityTypeForIdentifier:HKQuantityTypeIdentifierStepCount]
+                                                           predicate: nil
+                                                               limit: 0
+                                                     sortDescriptors: @[endDateSort]
+                                                      resultsHandler:^(HKSampleQuery *query, NSArray* results, NSError *error){
+                                                          if (_state == true)
+                                                              _state = [results lastObject] != nil ? true : false;
+                                                          
+                                                          KrollCallback* callback = [args objectAtIndex:2];
+                                                          if(callback){
+                                                              NSDictionary *res = @{
+                                                                                    @"success" :[NSNumber numberWithBool:_state]
+                                                                                    };
+                                                              NSArray* array = [NSArray arrayWithObjects: res, nil];
+                                                              [callback call:array thisObject:nil];
+                                                          }
+                                                      }];
     [self.healthStore executeQuery:query];
+    
 }
 
+
+
+-(void) observeQuantityType:(id)args{
+    
+    NSDictionary* queryObj = [args objectAtIndex:0];
+    HKQuantityType *quantityType = [HKQuantityType quantityTypeForIdentifier:[queryObj objectForKey:@"quantityType"]];
+    
+    HKObserverQuery *query =
+    [[HKObserverQuery alloc]
+     initWithSampleType: quantityType
+     predicate: nil
+     updateHandler:^(HKObserverQuery *query,
+                     HKObserverQueryCompletionHandler completionHandler,
+                     NSError *error) {
+         //   dispatch_async(dispatch_get_main_queue(), ^{
+         
+         //  bool success = (error == nil) ? true : false;
+         self.compl = completionHandler;
+         
+         // if (!error) [self getQuantityResult:args withCompletion:completionHandler];
+         //     });
+     }];
+    [self.healthStore executeQuery:query];
+}
+*/
+
+// END out commented
 
 
 @end
