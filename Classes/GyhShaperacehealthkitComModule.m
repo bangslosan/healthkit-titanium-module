@@ -131,21 +131,18 @@ struct stepsResults{
     
     NSMutableSet* writeTypes = [self getTypes:[args objectAtIndex:0]];
     NSMutableSet* readTypes = [self getTypes:[args objectAtIndex:1]];
-     NSDictionary* params = [args objectAtIndex:2];
+    NSDictionary* params = [args objectAtIndex:2];
+    self.url = [[NSString alloc] initWithString:[params objectForKey:@"url"]];
     
     [self.healthStore requestAuthorizationToShareTypes: writeTypes
                                              readTypes: readTypes
                                             completion:^(BOOL success, NSError *error) {
                                                 NSLog(@"SHAPERACE LOG: authorize method with error = %@", error);
                                                 
-                                                self.url = [[NSString alloc] initWithString:[params objectForKey:@"url"]];
-                                                
-                                                //      dispatch_async(dispatch_get_main_queue(), ^{
                                                 [self observeSteps];
                                                 [self enableBackgroundDeliverySteps];
                                                 [self executeTitaniumCallback:args withResult:@{@"success" :[NSNumber numberWithBool:success]}];
-                                                
-                                                //     });
+
                                             }];
 }
 
@@ -351,10 +348,7 @@ struct stepsResults{
                                                                limit: limit
                                                      sortDescriptors: @[endDate]
                                                       resultsHandler:^(HKSampleQuery *query, NSArray* results, NSError *error){
-                                                          
-                                                          //    dispatch_async(dispatch_get_main_queue(), ^{
-                                                          
-   
+
                                                               bool success = (error == nil) ? true : false;
                                                               NSDictionary *res;
                                                               
@@ -371,17 +365,11 @@ struct stepsResults{
                                                                            };
                                                               } else{
                                                                   res = @{
-                                                                           @"quantities" : @"",
-                                                                           @"quantityType" : @"",
-                                                                           @"sources" : @"",
                                                                            @"success" :[NSNumber numberWithBool: success]
-                                                                           
                                                                            };
                                                               }
                                                               [self executeTitaniumCallback:args withResult:res];
-                                                          
-                                                          
-                                                          //    });
+
                                                       }];
     [self.healthStore executeQuery:query];
 }
@@ -391,14 +379,7 @@ struct stepsResults{
 -(void)saveWorkout:(id)args{
     
     if ([self.healthStore authorizationStatusForType: [HKWorkoutType workoutType]] != HKAuthorizationStatusSharingAuthorized){
-        KrollCallback* callback = [args objectAtIndex:1];
-        if(callback){
-            NSDictionary *dict = @{
-                                   @"success": @"0"
-                                   };
-            NSArray* array = [NSArray arrayWithObjects: dict, nil];
-            [callback call:array thisObject:nil];
-        }
+        [self executeTitaniumCallback:args withResult:@{@"success": @"0"}];
         return;
     }
     
