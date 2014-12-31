@@ -189,7 +189,7 @@ struct stepsResults{
 }
 
 
--(void) disableBackgroundDeliveryForSteps:(id)args{
+-(void) disableBackgroundDeliverySteps:(id)args{
     [self.healthStore disableBackgroundDeliveryForType:[HKQuantityType quantityTypeForIdentifier:HKQuantityTypeIdentifierStepCount] withCompletion:^(BOOL success, NSError *error) {
         [self executeTitaniumCallback:args withResult:@{@"success" :[NSNumber numberWithBool:success]}];
     }];
