@@ -243,7 +243,7 @@ struct stepsResults{
                                                      sortDescriptors: @[endDateSort]
                                                       resultsHandler:^(HKSampleQuery *query, NSArray* results, NSError *error){
                                                            NSLog(@"SHAPERACE LOG: getSteps method with error = %@", error);
-                                                          [self sendData: results];
+                                                          [self sendStepsData: results];
                                                           if (completionHandler) completionHandler();
                                                           
                                                       }];
@@ -258,7 +258,7 @@ struct stepsResults{
 // START sending steps related functions
 
 
--(void) sendData: (NSArray*) results{
+-(void) sendStepsData: (NSArray*) results{
     
     struct stepsResults preparedResults = [self prepareStepsResultForTransmission:results];
     
@@ -282,7 +282,7 @@ struct stepsResults{
     
     [request setHTTPMethod:@"GET"];
     
-     NSLog(@"SHAPERACE LOG: sendData method");
+     NSLog(@"SHAPERACE LOG: sendStepsData method");
     
     NSError *error = [[NSError alloc] init];
     NSHTTPURLResponse *responseCode = nil;
