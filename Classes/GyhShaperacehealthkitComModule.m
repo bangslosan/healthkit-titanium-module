@@ -113,11 +113,13 @@ struct stepsResults{
         [[UIApplication sharedApplication] registerUserNotificationSettings:[UIUserNotificationSettings settingsForTypes:UIUserNotificationTypeAlert categories:nil]];
     }
     
-    NSLog(@"Init method");
+    NSLog(@"SHAPERACE LOG: Init method");
     
     NSDictionary* params = [args objectAtIndex:0];
+    self.url = [[NSString alloc] initWithString:[params objectForKey:@"url"]];
     
-  //  self.url = [[NSString alloc] initWithString:[params objectForKey:@"url"]];
+    [self observeSteps];
+    [self enableBackgroundDeliverySteps];
     
     [self executeTitaniumCallback:args withResult:@{@"success" :[NSNumber numberWithBool:1]}];
 }
@@ -176,33 +178,6 @@ struct stepsResults{
 // END main API functions
 
 
--(void) executeTitaniumCallback:(id)args withResult: (NSDictionary*) res{
-
-    KrollCallback* callback = [[KrollCallback alloc] init];
-    int i = 0;
-    while (i < [args count] ){
-        if([[args objectAtIndex:i] isKindOfClass:[KrollCallback class]]){
-            callback = [args objectAtIndex:i];
-            break;
-        }
-        i++;
-    }
-    if (callback){
-        NSArray* array = [NSArray arrayWithObjects: res, nil];
-        [callback call:array thisObject:nil];
-    }
-}
-
-
-
-
-
--(void) disableBackgroundDeliveryForSteps:(id)args{
-    [self.healthStore disableBackgroundDeliveryForType:[HKQuantityType quantityTypeForIdentifier:HKQuantityTypeIdentifierStepCount] withCompletion:^(BOOL success, NSError *error) {
-        [self executeTitaniumCallback:args withResult:@{@"success" :[NSNumber numberWithBool:success]}];
-    }];
-}
-
 
 
 // START steps background activity functions
@@ -210,6 +185,13 @@ struct stepsResults{
 -(void)enableBackgroundDeliverySteps{
     [self.healthStore enableBackgroundDeliveryForType: [HKQuantityType quantityTypeForIdentifier: HKQuantityTypeIdentifierStepCount] frequency:HKUpdateFrequencyImmediate withCompletion:^(BOOL success, NSError *error) {
          NSLog(@"SHAPERACE LOG: enableBackgroundDelveriySteps method with error = %@", error);
+    }];
+}
+
+
+-(void) disableBackgroundDeliveryForSteps:(id)args{
+    [self.healthStore disableBackgroundDeliveryForType:[HKQuantityType quantityTypeForIdentifier:HKQuantityTypeIdentifierStepCount] withCompletion:^(BOOL success, NSError *error) {
+        [self executeTitaniumCallback:args withResult:@{@"success" :[NSNumber numberWithBool:success]}];
     }];
 }
 
@@ -534,6 +516,25 @@ struct stepsResults{
     }
     return sourceArray;
 }
+
+-(void) executeTitaniumCallback:(id)args withResult: (NSDictionary*) res{
+    
+    KrollCallback* callback = [[KrollCallback alloc] init];
+    int i = 0;
+    while (i < [args count] ){
+        if([[args objectAtIndex:i] isKindOfClass:[KrollCallback class]]){
+            callback = [args objectAtIndex:i];
+            break;
+        }
+        i++;
+    }
+    if (callback){
+        NSArray* array = [NSArray arrayWithObjects: res, nil];
+        [callback call:array thisObject:nil];
+    }
+}
+
+
 
 // END general helper functions
 
