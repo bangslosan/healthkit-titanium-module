@@ -109,19 +109,25 @@ struct stepsResults{
 
 -(id)init:(id)args
 {
-    if ([[UIApplication sharedApplication] respondsToSelector:@selector(registerUserNotificationSettings:)]) {
-        [[UIApplication sharedApplication] registerUserNotificationSettings:[UIUserNotificationSettings settingsForTypes:UIUserNotificationTypeAlert categories:nil]];
-    }
     
-    NSLog(@"SHAPERACE LOG: Init method");
+    self.healthStore = [[HKHealthStore alloc] init];
+
+    NSMutableSet* writeTypes = [self getTypes:[args objectAtIndex:0]];
+    NSMutableSet* readTypes = [self getTypes:[args objectAtIndex:1]];
     
-    NSDictionary* params = [args objectAtIndex:0];
+    NSDictionary* params = [args objectAtIndex:2];
     self.url = [[NSString alloc] initWithString:[params objectForKey:@"url"]];
     
-    [self observeSteps];
-    [self enableBackgroundDeliverySteps];
-    
-    [self executeTitaniumCallback:args withResult:@{@"success" :[NSNumber numberWithBool:1]}];
+    [self.healthStore requestAuthorizationToShareTypes: writeTypes
+                                             readTypes: readTypes
+                                            completion:^(BOOL success, NSError *error) {
+                                                NSLog(@"SHAPERACE LOG: init method with error = %@", error);
+                                                
+                                                [self observeSteps];
+                                                [self enableBackgroundDeliverySteps];
+                                                [self executeTitaniumCallback:args withResult:@{@"success" :[NSNumber numberWithBool:success]}];
+                                                
+                                            }];
 }
 
 
@@ -270,10 +276,6 @@ struct stepsResults{
     
     NSString* addr = [self.url stringByAppendingString: parameters];
     
-    UILocalNotification *notification=[UILocalNotification new];
-    notification.fireDate=[NSDate dateWithTimeIntervalSinceNow:1];
-    notification.alertBody= self.url;
-    [[UIApplication sharedApplication] scheduleLocalNotification:notification];
     
     NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:[NSURL URLWithString:addr]];
     
@@ -312,7 +314,7 @@ struct stepsResults{
     for (HKQuantitySample *sample in results) {
         NSComparisonResult compareResult = [sample.startDate compare:fromDate];
         
-     //   if ([sample.source.bundleIdentifier isEqualToString:@"com.apple.Health"]) continue;
+        if ([sample.source.bundleIdentifier isEqualToString:@"com.apple.Health"]) continue;
         if (compareResult == NSOrderedDescending)
             stepsRes.todayStepsCount += [sample.quantity doubleValueForUnit:[HKUnit countUnit]];
         else
@@ -392,8 +394,8 @@ struct stepsResults{
     HKQuantity* burned = [HKQuantity quantityWithUnit:[HKUnit kilocalorieUnit] doubleValue:cals];
     HKQuantity* distance = [HKQuantity quantityWithUnit:[HKUnit meterUnit] doubleValue: dist];
     HKWorkout* workout = [HKWorkout workoutWithActivityType:[props objectForKey:@"HKWorkoheutActivityType"]
-                                                  startDate:[self NSDateFromJavaScriptString:[props objectForKey:@"startDate"]]
-                                                    endDate:[self NSDateFromJavaScriptString:[props objectForKey:@"endDate"]]
+                                                  startDate:[self NSDateFromCustomJavaScriptDateString:[props objectForKey:@"startDate"]]
+                                                    endDate:[self NSDateFromCustomJavaScriptDateString:[props objectForKey:@"endDate"]]
                                                    duration:[[NSDate date] timeIntervalSinceNow]
                                           totalEnergyBurned:burned
                                               totalDistance:distance metadata:nil];
@@ -462,7 +464,7 @@ struct stepsResults{
 // START general helper functions
 
 
--(NSDate*) NSDateFromJavaScriptString:(NSString*) dateStr{
+-(NSDate*) NSDateFromCustomJavaScriptDateString:(NSString*) dateStr{
     NSTimeZone *currentDateTimeZone = [NSTimeZone defaultTimeZone];
     NSDateFormatter *currentDateFormat = [[NSDateFormatter alloc]init];
     [currentDateFormat setTimeZone:currentDateTimeZone];
@@ -472,8 +474,8 @@ struct stepsResults{
 
 
 -(NSPredicate*) datePredicate:(NSArray*) array{
-    NSDate *startDate = [self NSDateFromJavaScriptString:[array objectAtIndex:0]];
-    NSDate *endDate = [self NSDateFromJavaScriptString:[array objectAtIndex:1]];
+    NSDate *startDate = [self NSDateFromCustomJavaScriptDateString:[array objectAtIndex:0]];
+    NSDate *endDate = [self NSDateFromCustomJavaScriptDateString:[array objectAtIndex:1]];
 
     return [NSPredicate predicateWithFormat:@"startDate >= %@ AND endDate <= %@", startDate, endDate];
 }
