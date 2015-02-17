@@ -181,10 +181,7 @@ For example, if you component was called Foo, your proxy would be named:
 For view proxies or widgets, you must create both a view proxy and a view implementation. 
 If you widget was named proxy, you would create the following files:
 
-	TiMyfirstFooProxy.h
-	TiMyfirstFooProxy.m
-	TiMyfirstFoo.h
-	TiMyfirstFoo.m
+	
     var mod = require('gyh.shaperacehealthkit.com');
 	
 The view implementation is named the same except it does contain the suffix `Proxy`.  
