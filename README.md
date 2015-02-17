@@ -84,7 +84,7 @@ However this method returns true if data is available for every read type
      		 }
  		});
 
-
+-----
 **Query quantity types**
 
 
