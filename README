@@ -1,5 +1,5 @@
 INSTRUCTIONS
-  
+ 
 1. Clone or download project
 2. In the root directory of the project run: python build.py
 3. Then run either:
@@ -300,4 +300,4 @@ DISTRIBUTING YOUR MODULE
 Currently, you will need to manually distribution your module distribution zip file directly. However, in the near future, we will make module distribution and sharing built-in to Titanium Developer and in the Titanium Marketplace!
 
 
-Cheers!!!
+Cheers!
