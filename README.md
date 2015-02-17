@@ -171,7 +171,7 @@ Saves a workout.
 	});
 
 
-**Misc**
+### **Misc**
 
 
 Javascript Support functions 
