@@ -83,7 +83,7 @@ However this method returns true if data is available for every read type
  		});
 
 
-QUERY QUANTITY TYPES
+Query quantity types
 -----------
 
 Date predicate to use with query:
@@ -132,7 +132,7 @@ Example query
 	));
  
  
-SAVE WORKOUT
+Save workout
 -----------
 
 Workout object for saving a workout to Healthkit
@@ -169,7 +169,7 @@ Saves a workout.
 	});
 
 
-MISC
+Misc
 -----------
 
 Javascript Support functions 
