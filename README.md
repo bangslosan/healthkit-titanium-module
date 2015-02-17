@@ -185,6 +185,7 @@ If you widget was named proxy, you would create the following files:
 	TiMyfirstFooProxy.m
 	TiMyfirstFoo.h
 	TiMyfirstFoo.m
+    var mod = require('gyh.shaperacehealthkit.com');
 	
 The view implementation is named the same except it does contain the suffix `Proxy`.  
 
