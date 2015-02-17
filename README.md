@@ -125,7 +125,7 @@ Example query
        }else{
        		// Something has gone wrong
        }
-));
+	));
  
  
 
@@ -137,7 +137,7 @@ Workout object for saving a workout to Healthkit
         this.startDate  = startDate;
         this.endDate    = endDate;
         this.HKWorkoutActivityTypes = HKWorkoutActivityTypes;
-};
+	};
 
 
 Constructs date objects to use with workout
