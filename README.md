@@ -88,7 +88,7 @@ Date predicate to use with query:
 
     function datePredicate(startDate, endDate)
     {
-            return { "datePredicate": [xcodeDate(startDate),   	xcodeDate(endDate)] };
+        return { "datePredicate": [xcodeDate(startDate), xcodeDate(endDate)] };
     }
 
 Use ordinary JavaScript date objects with the query
@@ -106,9 +106,9 @@ Example  predicate
 Query object to use with  to query Healthkit for quantity types
 
      var Query = function(quantityType, limit, predicate){
-                this.quantityType   	= quantityType;
-                this.limit                  = limit;
-                this.predicate              = predicate;
+            this.quantityType   	= quantityType;
+            this.limit              = limit;
+            this.predicate          = predicate;
      };
 
 
