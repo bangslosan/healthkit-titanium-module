@@ -66,7 +66,7 @@ Asks user for authorization and displays the Permissions Dialog (happens only on
      	 }else{
      	     // error occurred
      	 }
-	  })
+	  });
 
 
 Controls if the user gave all permissions. For write types this works fine, but for  read types Apple doesn't allow developers to query directly for permission (see documentation). 
@@ -80,7 +80,7 @@ However this method returns true if data is available for every read type
      	 else{
           // some permission were denied
      		 }
- 		})
+ 		});
 
 
 
@@ -100,7 +100,7 @@ Use ordinary JavaScript date objects with the query
 
 Example  predicate
 
-	var predicate = new datePredicate(startDate, endDate)
+	var predicate = new datePredicate(startDate, endDate);
 
 
 Query object to use to query Healthkit for quantity types
@@ -109,7 +109,7 @@ Query object to use to query Healthkit for quantity types
             this.quantityType   	= quantityType;
             this.limit              = limit;
             this.predicate          = predicate;
-     };
+     }
 
 
 Example query 
