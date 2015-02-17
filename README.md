@@ -98,7 +98,7 @@ Returns a date predicate
 
 Example  predicate
 
-		var predicate = new datePredicate(startDate, endDate)
+	var predicate = new datePredicate(startDate, endDate)
 
 
 Query object to use with  to query Healthkit for quantity types
@@ -112,7 +112,7 @@ Query object to use with  to query Healthkit for quantity types
 
 Example query 
 
-		var query = new Query("HKQuantityTypeIdentifierStepCount", 0, predicate)
+	var query = new Query("HKQuantityTypeIdentifierStepCount", 0, predicate)
 
  
  Queries Healthkit for data for  quantity types
