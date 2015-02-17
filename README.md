@@ -133,8 +133,8 @@ Example query
        }
 	));
  
- 
-**Save workout**
+---- 
+**Save a workout**
 
 
 Workout object for saving a workout to Healthkit
@@ -170,7 +170,7 @@ Saves a workout.
 		}
 	});
 
-
+-----
 ### **Misc**
 
 
