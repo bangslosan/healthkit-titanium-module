@@ -1,19 +1,5 @@
 
 
-
-
-Or:
-In Studio:
-Open the tiapp.xml file located in the root directory of the project.
-Under the Modules section, click the Add button.
-Select gyh.shaperacehealthkit.com
-Click OK.
-
-
-Make sure that healthkit is enabled for your provisioning profile for your app
-https://developer.apple.com/account/ios/profile/profileList.action
-
-
 // Creates the module
 	var mod = require('gyh.shaperacehealthkit.com');
 
@@ -151,21 +137,28 @@ Then either:
 1.Open the tiapp.xml and update the <modules/> element to include the module as a dependency to the project: 
 
 	<ti:app>
-    <modules>
-        <module platform="iphone">gyh.shaperacehealthkit.com</module>
-    </modules>
-</ti:app>
+     	<modules>
+       		 <module platform="iphone">gyh.shaperacehealthkit.com</module>
+    	</modules>
+	</ti:app>
 
-For example, if you component was called Foo, your proxy would be named:
+Or:
+In Studio:
+Open the tiapp.xml file located in the root directory of the project.
+Under the Modules section, click the Add button.
+Select gyh.shaperacehealthkit.com
+Click OK.
 
-	TiMyfirstFooProxy
-	
-For view proxies or widgets, you must create both a view proxy and a view implementation. 
-If you widget was named proxy, you would create the following files:
 
+Make sure that healthkit is enabled for your provisioning profile for your app
+https://developer.apple.com/account/ios/profile/profileList.action
+
+
+Creates the module:
 	
     var mod = require('gyh.shaperacehealthkit.com');
 	
+    
 The view implementation is named the same except it does contain the suffix `Proxy`.  
 
 View implementations extend the Titanium base class `TiUIView`.  View Proxies extend the
