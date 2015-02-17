@@ -56,7 +56,7 @@ Array for types to read. Use any Healthkit constant identifier.
 
 Array for types to write. Use any Healthkit constant identifier.
 
-var writeTypes = ["HKQuantityTypeIdentifierBodyFatPercentage", "HKQuantityTypeIdentifierDietaryFatTotal"];
+  var writeTypes = ["HKQuantityTypeIdentifierBodyFatPercentage", "HKQuantityTypeIdentifierDietaryFatTotal"];
 
 
 
@@ -86,37 +86,43 @@ However this method returns true if data is available for every read type
 
 
 
-// Constructs dateobjects to use with query
-var startDate = new Date(); 
-startDate.setHours(00);
-var endDate = new Date();
+Constructs dateobjects to use with query
+
+    var startDate = new Date(); 
+    startDate.setHours(00);
+    var endDate = new Date();
 
 
-// Returns a date predicate
-function datePredicate(startDate, endDate)
-{
-        return { "datePredicate": [xcodeDate(startDate),  xcodeDate(endDate)] };
-}
+Returns a date predicate
+
+    function datePredicate(startDate, endDate)
+    {
+            return { "datePredicate": [xcodeDate(startDate),   	xcodeDate(endDate)] };
+    }
 
 
-// Example  predicate
-var predicate = new datePredicate(startDate, endDate)
+Example  predicate
+
+		var predicate = new datePredicate(startDate, endDate)
 
 
-// Query object to use with  to query Healthkit for quantity types
- var Query = function(quantityType, limit, predicate){
-            this.quantityType   	= quantityType;
-            this.limit                  = limit;
-            this.predicate              = predicate;
- };
+Query object to use with  to query Healthkit for quantity types
+
+     var Query = function(quantityType, limit, predicate){
+                this.quantityType   	= quantityType;
+                this.limit                  = limit;
+                this.predicate              = predicate;
+     };
 
 
- // Example query 
-var query = new Query("HKQuantityTypeIdentifierStepCount", 0, predicate)
+Example query 
+
+		var query = new Query("HKQuantityTypeIdentifierStepCount", 0, predicate)
 
  
- // Queries Healthkit for data for  quantity types
- healthkit.getQuantityResult(query, function(res){
+ Queries Healthkit for data for  quantity types
+ 
+ 	mod.getQuantityResult(query, function(res){
        if (res.success == 1){
        		// res.quantities - array with results
   			// res.sources - array with the source (app) that created each quantity
@@ -128,8 +134,9 @@ var query = new Query("HKQuantityTypeIdentifierStepCount", 0, predicate)
  
  
 
- // Workout object for saving a workout to Healthkit
-var Workout = function(calories, distance, startDate, endDate, HKWorkoutActivityTypes){
+Workout object for saving a workout to Healthkit
+
+	var Workout = function(calories, distance, startDate, endDate, HKWorkoutActivityTypes){
         this.calories   = calories;
         this.distance   = distance;
         this.startDate  = startDate;
@@ -138,17 +145,21 @@ var Workout = function(calories, distance, startDate, endDate, HKWorkoutActivity
 };
 
 
-// Constructs date objects to use with workout
-startDate = new Date(); 
-startDate.setHours(00);
-endDate = new Date();
+Constructs date objects to use with workout
 
-// Sample workout 
-var workout = new Workout(500, 2000, startDate, endDate, "HKWorkoutActivityTypes");
+    startDate = new Date(); 
+    startDate.setHours(00);
+    endDate = new Date();
 
 
- // Saves a workout. 
-healthKit.saveWorkout(workout, function(res){
+Sample workout 
+
+    var workout = new Workout(500, 2000, startDate, endDate, "HKWorkoutActivityTypes");
+
+
+Saves a workout. 
+
+	mod.saveWorkout(workout, function(res){
 	if (res.success == 1){
 		// workout was saved correctly
 	}else{
@@ -158,12 +169,12 @@ healthKit.saveWorkout(workout, function(res){
 
 
 
-//  Javascript Support functions 
+Javascript Support functions 
 
-function xcodeDate(d)
-{
+	function xcodeDate(d)
+	{
         return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate()  + " " + d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds();
-}
+	}
 
 
 Cheers!
