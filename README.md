@@ -1,10 +1,6 @@
 
 
-<ti:app>
-    <modules>
-        <module platform="iphone">gyh.shaperacehealthkit.com</module>
-    </modules>
-</ti:app>
+
 
 Or:
 In Studio:
@@ -154,7 +150,11 @@ mv gyh.shaperacehealthkit.com-iphone-1.0.zip ~/Library/Application\ Support/Tita
 Then either:
 1.Open the tiapp.xml and update the <modules/> element to include the module as a dependency to the project: 
 
-	Ti<ModuleName><ComponentName>Proxy
+	<ti:app>
+    <modules>
+        <module platform="iphone">gyh.shaperacehealthkit.com</module>
+    </modules>
+</ti:app>
 
 For example, if you component was called Foo, your proxy would be named:
 
