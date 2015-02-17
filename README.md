@@ -34,7 +34,7 @@ https://developer.apple.com/account/ios/profile/profileList.action
 API
 -----------
 
-### **General**
+**General**
 
 Creates the module:
 	
@@ -134,8 +134,8 @@ Example query
 	));
  
  
-Save workout
------------
+**Save workout**
+
 
 Workout object for saving a workout to Healthkit
 
@@ -171,8 +171,8 @@ Saves a workout.
 	});
 
 
-Misc
------------
+**Misc**
+
 
 Javascript Support functions 
 
