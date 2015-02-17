@@ -1,19 +1,5 @@
 
 
-// Creates the module
-	var mod = require('gyh.shaperacehealthkit.com');
-
-
-// checks if Healthkit is available on the device
-	var supported = mod.isSupported();
-
-
-//  Array for types to read. Use any Healthkit constant identifier.
-	var readTypes = ["HKQuantityTypeIdentifierStepCount", "HKQuantityTypeIdentifierBodyMass"];
-
-
-//  Array for types to write. Use any Healthkit constant identifier.
-var writeTypes = ["HKQuantityTypeIdentifierBodyFatPercentage", "HKQuantityTypeIdentifierDietaryFatTotal"];
 
 
 // Asks user for authorization and displays the Permissions Dialog (happens only once)
@@ -154,19 +140,34 @@ Make sure that healthkit is enabled for your provisioning profile for your app
 https://developer.apple.com/account/ios/profile/profileList.action
 
 
+INSTRUCTIONS
+-----------
+
 Creates the module:
 	
     var mod = require('gyh.shaperacehealthkit.com');
 	
     
-The view implementation is named the same except it does contain the suffix `Proxy`.  
+For example,
 
-View implementations extend the Titanium base class `TiUIView`.  View Proxies extend the
-Titanium base class `TiUIViewProxy` or `TiUIWidgetProxy`.  
+	var my_module = require('gyh.shaperacehealthkit.com');
+	my_module.foo();
 
-For proxies that are simply native objects that can be returned to JavaScript, you can 
-simply extend `TiProxy` and no view implementation is required.
 
+
+
+// checks if Healthkit is available on the device
+
+	var supported = mod.isSupported();
+
+
+//  Array for types to read. Use any Healthkit constant identifier.
+
+	var readTypes = ["HKQuantityTypeIdentifierStepCount", "HKQuantityTypeIdentifierBodyMass"];
+
+
+//  Array for types to write. Use any Healthkit constant identifier.
+var writeTypes = ["HKQuantityTypeIdentifierBodyFatPercentage", "HKQuantityTypeIdentifierDietaryFatTotal"];
 
 GET STARTED
 ------------
