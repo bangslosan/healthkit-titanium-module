@@ -70,7 +70,7 @@ Controls if the user gave all permissions. For write types this works fine, but 
 However this method returns true if data is available for every read type 
 (which indicates the user gave read permission)
 
-	  mod.controlPermssions(writeTypes, readTypes, function(res){
+	mod.controlPermssions(writeTypes, readTypes, function(res){
      	 if (res.success == 1){
          	 // all permissions given
     	  }
