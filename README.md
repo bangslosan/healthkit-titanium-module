@@ -38,18 +38,21 @@ Creates the module:
 	
     var mod = require('gyh.shaperacehealthkit.com');
 	
-    
+ 
+ 
 Checks if Healthkit is available on the device:
 
 	var supported = mod.isSupported();
 
 
-Array for types to read. Use any Healthkit constant identifier.
+
+Array for types to read. Use any Healthkit constant identifier:
 
 	var readTypes = ["HKQuantityTypeIdentifierStepCount", 	"HKQuantityTypeIdentifierBodyMass"];
 
 
-Array for types to write. Use any Healthkit constant identifier.
+
+Array for types to write. Use any Healthkit constant identifier:
 
     var writeTypes = ["HKQuantityTypeIdentifierBodyFatPercentage", "HKQuantityTypeIdentifierDietaryFatTotal"];
 
