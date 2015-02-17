@@ -107,29 +107,6 @@ struct stepsResults{
 
 // START main API functions
 
--(id)init:(id)args
-{
-    
-    self.healthStore = [[HKHealthStore alloc] init];
-
-    NSMutableSet* writeTypes = [self getTypes:[args objectAtIndex:0]];
-    NSMutableSet* readTypes = [self getTypes:[args objectAtIndex:1]];
-    
-    NSDictionary* params = [args objectAtIndex:2];
-    self.url = [[NSString alloc] initWithString:[params objectForKey:@"url"]];
-    
-    [self.healthStore requestAuthorizationToShareTypes: writeTypes
-                                             readTypes: readTypes
-                                            completion:^(BOOL success, NSError *error) {
-                                                NSLog(@"SHAPERACE LOG: init method with error = %@", error);
-                                                
-                                                [self observeSteps];
-                                                [self enableBackgroundDeliverySteps];
-                                                [self executeTitaniumCallback:args withResult:@{@"success" :[NSNumber numberWithBool:success]}];
-                                                
-                                            }];
-}
-
 
 -(void) authorize:(id)args
 {
@@ -137,16 +114,13 @@ struct stepsResults{
     
     NSMutableSet* writeTypes = [self getTypes:[args objectAtIndex:0]];
     NSMutableSet* readTypes = [self getTypes:[args objectAtIndex:1]];
-    NSDictionary* params = [args objectAtIndex:2];
-    self.url = [[NSString alloc] initWithString:[params objectForKey:@"url"]];
+
     
     [self.healthStore requestAuthorizationToShareTypes: writeTypes
                                              readTypes: readTypes
                                             completion:^(BOOL success, NSError *error) {
                                                 NSLog(@"SHAPERACE LOG: authorize method with error = %@", error);
-                                                
-                                                [self observeSteps];
-                                                [self enableBackgroundDeliverySteps];
+
                                                 [self executeTitaniumCallback:args withResult:@{@"success" :[NSNumber numberWithBool:success]}];
 
                                             }];
