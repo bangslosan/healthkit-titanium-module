@@ -103,7 +103,7 @@ Example  predicate
 	var predicate = new datePredicate(startDate, endDate)
 
 
-Query object to use with  to query Healthkit for quantity types
+Query object to use to query Healthkit for quantity types
 
      var Query = function(quantityType, limit, predicate){
             this.quantityType   	= quantityType;
@@ -117,7 +117,7 @@ Example query
 	var query = new Query("HKQuantityTypeIdentifierStepCount", 0, predicate)
 
  
- Queries Healthkit for data for  quantity types
+ Queries Healthkit for data for quantity types
  
  	mod.getQuantityResult(query, function(res){
        if (res.success == 1){
