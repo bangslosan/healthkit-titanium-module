@@ -73,13 +73,21 @@ var startDate = new Date();
 startDate.setHours(00);
 var endDate = new Date();
 
+
+// Returns a date predicate
+function datePredicate(startDate, endDate)
+{
+        return { "datePredicate": [xcodeDate(startDate),  xcodeDate(endDate)] };
+}
+
+
 // Example  predicate
 var predicate = new datePredicate(startDate, endDate)
 
 
 // Query object to use with  to query Healthkit for quantity types
  var Query = function(quantityType, limit, predicate){
-            this.quantityType   		= quantityType;
+            this.quantityType   	= quantityType;
             this.limit                  = limit;
             this.predicate              = predicate;
  };
@@ -133,12 +141,6 @@ healthKit.saveWorkout(workout, function(res){
 
 
 //  Javascript Support functions 
-
-// Returns a string with start and end date that can be used as a predicate to save or retrieve data
-function datePredicate(startDate, endDate)
-{
-        return { "datePredicate": [xcodeDate(startDate),  xcodeDate(endDate)] };
-}
 
 function xcodeDate(d)
 {
