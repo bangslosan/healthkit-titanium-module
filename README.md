@@ -34,6 +34,8 @@ https://developer.apple.com/account/ios/profile/profileList.action
 API
 -----------
 
+**General**
+
 Creates the module:
 	
     var mod = require('gyh.shaperacehealthkit.com');
