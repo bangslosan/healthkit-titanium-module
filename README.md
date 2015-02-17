@@ -34,7 +34,7 @@ https://developer.apple.com/account/ios/profile/profileList.action
 API
 -----------
 
-**General**
+### **General**
 
 Creates the module:
 	
