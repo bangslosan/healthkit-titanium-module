@@ -44,13 +44,13 @@ var writeTypes = ["HKQuantityTypeIdentifierBodyFatPercentage", "HKQuantityTypeId
 
 
 // Asks user for authorization and displays the Permissions Dialog (happens only once)
-mod.authorize(writeTypes, readTypes, function(res){
-	if (res.success == 1){
-		// no error occured
-	}else{
-		// error occurred
-	}
-})
+	mod.authorize(writeTypes, readTypes, function(res){
+      	if (res.success == 1){
+       	   // no error occured
+     	 }else{
+     	     // error occurred
+     	 }
+	  })
 
 
 // Controls if the user gave all permissions. For write types this works fine, but for 
