@@ -1,14 +1,5 @@
-INSTRUCTIONS
- 
-1. Clone or download project
-2. In the root directory of the project run: python build.py
-3. Then run either:
-unzip -o gyh.shaperacehealthkit.com-iphone-1.0.zip -d ~/Library/Application\ Support/Titanium/
-or:
-mv gyh.shaperacehealthkit.com-iphone-1.0.zip ~/Library/Application\ Support/Titanium/
 
-Then either:
-1.Open the tiapp.xml and update the <modules/> element to include the module as a dependency to the project: 
+
 <ti:app>
     <modules>
         <module platform="iphone">gyh.shaperacehealthkit.com</module>
@@ -150,27 +141,18 @@ function xcodeDate(d)
 
 
 
-Appcelerator Titanium iPhone Module Project
-===========================================
-
-This is a skeleton Titanium Mobile iPhone module project.  Modules can be 
-used to extend the functionality of Titanium by providing additional native
-code that is compiled into your application at build time and can expose certain
-APIs into JavaScript. 
-
-MODULE NAMING
---------------
-
-Choose a unique module id for your module.  This ID usually follows a namespace
-convention using DNS notation.  For example, com.appcelerator.module.test.  This
-ID can only be used once by all public modules in Titanium.
-
-
-COMPONENTS
+INSTRUCTIONS
 -----------
 
-Components that are exposed by your module must follow a special naming convention.
-A component (widget, proxy, etc) must be named with the pattern:
+1. Clone or download project
+2. In the root directory of the project run: python build.py
+3. Then run either:
+unzip -o gyh.shaperacehealthkit.com-iphone-1.0.zip -d ~/Library/Application\ Support/Titanium/
+or:
+mv gyh.shaperacehealthkit.com-iphone-1.0.zip ~/Library/Application\ Support/Titanium/
+
+Then either:
+1.Open the tiapp.xml and update the <modules/> element to include the module as a dependency to the project: 
 
 	Ti<ModuleName><ComponentName>Proxy
 
