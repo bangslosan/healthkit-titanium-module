@@ -1,10 +1,5 @@
 
 
-
-
-
-
-
 INSTRUCTIONS
 -----------
 
@@ -125,7 +120,7 @@ Example query
  	mod.getQuantityResult(query, function(res){
        if (res.success == 1){
        		// res.quantities - array with results
-  			// res.sources - array with the source (app) that created each quantity
+  			// res.sources - array with the src/app that created each quantity
  	 		// res.quantityType - the type of the query 
        }else{
        		// Something has gone wrong
@@ -160,20 +155,19 @@ Sample workout
 Saves a workout. 
 
 	mod.saveWorkout(workout, function(res){
-	if (res.success == 1){
-		// workout was saved correctly
-	}else{
-		// something went wrong, possibly due to no write permission 
-	}
-});
+		if (res.success == 1){
+			// workout was saved correctly
+		}else{
+			// something went wrong, possibly due to no write permission 
+		}
+	});
 
 
 
 Javascript Support functions 
 
-	function xcodeDate(d)
-	{
-        return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate()  + " " + d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds();
+	function xcodeDate(d){
+        return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate()  + 		" " + d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds();
 	}
 
 
