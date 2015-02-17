@@ -31,7 +31,7 @@ Make sure that healthkit is enabled for your provisioning profile for your app
 https://developer.apple.com/account/ios/profile/profileList.action
 
 
-INSTRUCTIONS
+API
 -----------
 
 Creates the module:
