@@ -58,7 +58,7 @@ Array for types to write. Use any Healthkit constant identifier:
 
 
 
-Asks user for authorization and displays the Permissions Dialog (happens only once)
+Asks user for authorization and displays the Permissions Dialog (happens only once):
 
 	mod.authorize(writeTypes, readTypes, function(res){
       	if (res.success == 1){
@@ -71,7 +71,7 @@ Asks user for authorization and displays the Permissions Dialog (happens only on
 
 Controls if the user gave all permissions. For write types this works fine, but for  read types Apple doesn't allow developers to query directly for permission (see documentation). 
 However this method returns true if data is available for every read type 
-(which indicates the user gave read permission)
+(which indicates the user gave read permission):
 
 	mod.controlPermssions(writeTypes, readTypes, function(res){
      	 if (res.success == 1){
@@ -84,19 +84,18 @@ However this method returns true if data is available for every read type
 
 
 
-Constructs ordinary JavaScript date object to use with query
-
-    var startDate = new Date(); 
-    startDate.setHours(00);
-    var endDate = new Date();
-
-
-Returns a date predicate
+Date predicate to use with query:
 
     function datePredicate(startDate, endDate)
     {
             return { "datePredicate": [xcodeDate(startDate),   	xcodeDate(endDate)] };
     }
+
+Use ordinary JavaScript date objects with the query
+
+    var startDate = new Date(); 
+    startDate.setHours(00);
+    var endDate = new Date();
 
 
 Example  predicate
