@@ -28,15 +28,15 @@ https://developer.apple.com/account/ios/profile/profileList.action
 
 
 // Creates the module
-var mod = require('gyh.shaperacehealthkit.com');
+	var mod = require('gyh.shaperacehealthkit.com');
 
 
 // checks if Healthkit is available on the device
-var supported = mod.isSupported();
+	var supported = mod.isSupported();
 
 
 //  Array for types to read. Use any Healthkit constant identifier.
-var readTypes = ["HKQuantityTypeIdentifierStepCount", "HKQuantityTypeIdentifierBodyMass"];
+	var readTypes = ["HKQuantityTypeIdentifierStepCount", "HKQuantityTypeIdentifierBodyMass"];
 
 
 //  Array for types to write. Use any Healthkit constant identifier.
