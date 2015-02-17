@@ -81,7 +81,7 @@ However this method returns true if data is available for every read type
 
 
 
-Constructs dateobjects to use with query
+Constructs ordinary JavaScript date object to use with query
 
     var startDate = new Date(); 
     startDate.setHours(00);
@@ -140,7 +140,7 @@ Workout object for saving a workout to Healthkit
 	};
 
 
-Constructs date objects to use with workout
+Constructs ordinary JavaScript date object to use with workout
 
     startDate = new Date(); 
     startDate.setHours(00);
