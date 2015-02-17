@@ -51,7 +51,7 @@ Array for types to read. Use any Healthkit constant identifier.
 
 Array for types to write. Use any Healthkit constant identifier.
 
-  var writeTypes = ["HKQuantityTypeIdentifierBodyFatPercentage", "HKQuantityTypeIdentifierDietaryFatTotal"];
+    var writeTypes = ["HKQuantityTypeIdentifierBodyFatPercentage", "HKQuantityTypeIdentifierDietaryFatTotal"];
 
 
 
