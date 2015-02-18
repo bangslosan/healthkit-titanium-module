@@ -48,7 +48,7 @@ Checks if Healthkit is available on the device:
 
 
 
-Array for types to **read**. Use any Healthkit constant identifier:
+Sample object for types to **read**. Use any Healthkit constant identifier:
 
 
 
@@ -62,7 +62,7 @@ Array for types to **read**. Use any Healthkit constant identifier:
 
 
 
-Array for types to **write**. Use any Healthkit constant identifier:
+Sample object for types to **write**. Use any Healthkit constant identifier:
 
     var writeTypes = {
       HKCategoryType: [],
