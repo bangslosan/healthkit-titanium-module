@@ -50,13 +50,27 @@ Checks if Healthkit is available on the device:
 
 Array for types to **read**. Use any Healthkit constant identifier:
 
-	var readTypes = ["HKQuantityTypeIdentifierStepCount", 	"HKQuantityTypeIdentifierBodyMass"];
+
+
+    var readTypes = {
+        HKCategoryType: [],
+        HKCharacteristicType : [],
+        HKCorrelationType : [],
+        HKQuantityType : ["HKQuantityTypeIdentifierStepCount", "HKQuantityTypeIdentifierActiveEnergyBurned"],
+        HKWorkoutType: ["HKWorkoutType"]
+    };
 
 
 
 Array for types to **write**. Use any Healthkit constant identifier:
 
-    var writeTypes = ["HKQuantityTypeIdentifierBodyFatPercentage", "HKQuantityTypeIdentifierDietaryFatTotal"];
+    var writeTypes = {
+      HKCategoryType: [],
+      HKCharacteristicType : [],
+      HKCorrelationType : [],
+      HKQuantityType : ["HKQuantityTypeIdentifierStepCount", "HKQuantityTypeIdentifierActiveEnergyBurned"],
+      HKWorkoutType: ["HKWorkoutType"]
+    };
 
 
 
